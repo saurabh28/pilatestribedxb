@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Client Session Tracker</title>
+<meta name="description" content="Client management and session tracking for Pilates, strength, and functional training — cloud-backed, private per trainer account.">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2f9e6e">
+
+<!-- iOS: makes "Add to Home Screen" launch as a standalone app (no Safari
+     chrome) with its own persistent, app-scoped storage. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sessions">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<div id="root"></div>
+
+<!-- config.js defines window.SUPABASE_URL and window.SUPABASE_ANON_KEY.
+     Fill these in from your Supabase project (Project Settings → API) —
+     see config.example.js for the exact values to copy. -->
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="icons.js"></script>
+<script src="ui.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function (err) {
+        console.warn("Service worker registration failed:", err);
+      });
+    });
+  }
+</script>
+
+</body>
+</html>
