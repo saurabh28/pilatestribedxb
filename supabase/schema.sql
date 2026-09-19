@@ -156,7 +156,38 @@ drop policy if exists "goals_owner_all" on goals;
 create policy "goals_owner_all" on goals
   for all using (trainer_id = auth.uid()) with check (trainer_id = auth.uid());
 
+-- ----------------------------------------------------------------------------
+-- clients.tracked_body_areas — which anatomy areas this client's coach scores
+-- ----------------------------------------------------------------------------
+alter table clients add column if not exists tracked_body_areas text[] not null default
+  array['Core','Lower back','Hips','Hamstring','Shoulder','Cervical spine','Pelvic floor'];
+
+-- ----------------------------------------------------------------------------
+-- body_scores — insert-only history of per-area anatomy scores (1-10).
+-- Never updated, matching how `sessions` history is treated: every entry is
+-- a new row, so a per-area trend can be charted over time.
+-- ----------------------------------------------------------------------------
+create table if not exists body_scores (
+  id uuid primary key default gen_random_uuid(),
+  trainer_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  client_id uuid not null references clients(id) on delete cascade,
+  area text not null,
+  score integer not null check (score between 1 and 10),
+  source text not null default 'assessment' check (source in ('assessment', 'session')),
+  session_id uuid references sessions(id) on delete set null,
+  notes text not null default '',
+  recorded_at date not null default current_date,
+  created_at timestamptz not null default now()
+);
+create index if not exists body_scores_trainer_idx on body_scores (trainer_id);
+create index if not exists body_scores_client_area_idx on body_scores (client_id, area, recorded_at);
+
+alter table body_scores enable row level security;
+drop policy if exists "body_scores_owner_all" on body_scores;
+create policy "body_scores_owner_all" on body_scores
+  for all using (trainer_id = auth.uid()) with check (trainer_id = auth.uid());
+
 -- ============================================================================
--- Done. Verify in Table Editor: you should see 4 tables, each with a shield
--- icon indicating RLS is on.
+-- Done. Verify in Table Editor: you should see 5 tables (programs, clients,
+-- sessions, goals, body_scores), each with a shield icon indicating RLS is on.
 -- ============================================================================
