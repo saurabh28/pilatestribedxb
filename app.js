@@ -963,6 +963,9 @@ function SessionFormPage(props) {
   var _pp = useState(""), selectedProgramId = _pp[0], setSelectedProgramId = _pp[1];
   var _cpo = useState(false), confirmApplyOpen = _cpo[0], setConfirmApplyOpen = _cpo[1];
   var _pdefault = useState(false), programDefaulted = _pdefault[0], setProgramDefaulted = _pdefault[1];
+  var _bso = useState(false), bodyScoresOpen = _bso[0], setBodyScoresOpen = _bso[1];
+  var _bsd = useState({}), bodyScoreDraft = _bsd[0], setBodyScoreDraft = _bsd[1];
+  function setDraftScore(area, value) { setBodyScoreDraft(function (d) { var next = Object.assign({}, d); next[area] = value; return next; }); }
 
   useEffect(function () {
     var cancelled = false;
@@ -1014,7 +1017,14 @@ function SessionFormPage(props) {
     if (!form) return;
     setSaving(true);
     var p = mode === "create" ? sessionRepository.create(form) : sessionRepository.update(props.sessionId, form);
-    p.then(function (result) { navigate("/sessions/" + (mode === "create" ? result.id : props.sessionId)); }).finally(function () { setSaving(false); });
+    p.then(function (result) {
+      var sessionId = mode === "create" ? result.id : props.sessionId;
+      var trackedAreas = client && client.trackedBodyAreas ? client.trackedBodyAreas : [];
+      var scoreInputs = trackedAreas.filter(function (a) { return bodyScoreDraft[a] != null && bodyScoreDraft[a] !== ""; })
+        .map(function (a) { return { clientId: form.clientId, area: a, score: Number(bodyScoreDraft[a]), source: "session", sessionId: sessionId, recordedAt: form.date, notes: "" }; });
+      var scoreSave = scoreInputs.length ? bodyScoreRepository.createMany(scoreInputs) : Promise.resolve();
+      return scoreSave.then(function () { navigate("/sessions/" + sessionId); });
+    }).finally(function () { setSaving(false); });
   }
   function handleDelete() {
     sessionRepository.remove(props.sessionId).then(function () { navigate("/clients/" + form.clientId + "?tab=sessions"); });
@@ -1059,6 +1069,23 @@ function SessionFormPage(props) {
             h(TextField, { label: "RPE (1–10)", type: "number", min: 1, max: 10, inputMode: "numeric", optional: true, value: form.rpe == null ? "" : form.rpe, onChange: function (e) { set("rpe", e.target.value === "" ? null : Number(e.target.value)); } })
           ),
           h(TextAreaField, { label: "Client response", optional: true, value: form.clientResponse, onChange: function (e) { set("clientResponse", e.target.value); }, placeholder: "How did the client feel / respond?" })
+        ),
+        client && client.trackedBodyAreas && client.trackedBodyAreas.length > 0 && h("fieldset", { className: "form-group" },
+          h("legend", null,
+            h("button", {
+              type: "button", className: "btn-text", style: { fontWeight: 700 },
+              onClick: function () { setBodyScoresOpen(!bodyScoresOpen); },
+            }, (bodyScoresOpen ? "Hide" : "Update") + " body scores")
+          ),
+          bodyScoresOpen && h("div", { className: "form-grid-2" },
+            client.trackedBodyAreas.map(function (area) {
+              return h(TextField, {
+                key: area, label: area, type: "number", min: 1, max: 10, inputMode: "numeric", optional: true,
+                value: bodyScoreDraft[area] == null ? "" : bodyScoreDraft[area],
+                onChange: function (e) { setDraftScore(area, e.target.value); },
+              });
+            })
+          )
         ),
         h("fieldset", { className: "form-group" },
           h("legend", null, "Session notes"),
