@@ -441,6 +441,7 @@ function blankClient() {
   return {
     fullName: "", gender: "Prefer not to say", dateOfBirth: null, email: "", phone: "", startDate: todayIso(),
     preferredTraining: [], currentGoal: "", medicalHistory: "", injuriesAndPain: "", precautions: "",
+    trackedBodyAreas: STANDARD_BODY_AREAS.slice(),
     emergencyContactName: "", emergencyContactPhone: "", packageTotalSessions: null, packageStartDate: null,
     packageExpiryDate: null, status: "active", generalNotes: "", assignedProgramId: null,
   };

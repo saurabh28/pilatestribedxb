@@ -134,6 +134,7 @@ function rowToClient(r) {
     id: r.id, trainerId: r.trainer_id, fullName: r.full_name, gender: r.gender,
     dateOfBirth: r.date_of_birth, email: r.email, phone: r.phone, startDate: r.start_date,
     preferredTraining: r.preferred_training || [], currentGoal: r.current_goal || "",
+    trackedBodyAreas: r.tracked_body_areas && r.tracked_body_areas.length ? r.tracked_body_areas : STANDARD_BODY_AREAS,
     medicalHistory: r.medical_history || "", injuriesAndPain: r.injuries_and_pain || "",
     precautions: r.precautions || "", emergencyContactName: r.emergency_contact_name || "",
     emergencyContactPhone: r.emergency_contact_phone || "",
@@ -152,6 +153,7 @@ function clientToRow(c) {
   if ("phone" in c) row.phone = c.phone || null;
   if ("startDate" in c) row.start_date = c.startDate || null;
   if ("preferredTraining" in c) row.preferred_training = c.preferredTraining || [];
+  if ("trackedBodyAreas" in c) row.tracked_body_areas = c.trackedBodyAreas && c.trackedBodyAreas.length ? c.trackedBodyAreas : STANDARD_BODY_AREAS;
   if ("currentGoal" in c) row.current_goal = c.currentGoal || "";
   if ("medicalHistory" in c) row.medical_history = c.medicalHistory || "";
   if ("injuriesAndPain" in c) row.injuries_and_pain = c.injuriesAndPain || "";
@@ -398,6 +400,23 @@ var programRepository = {
     });
   },
   remove: function (id) { return supabase.from("programs").delete().eq("id", id).then(checkError).then(afterWrite); },
+};
+
+var bodyScoreRepository = {
+  listByClient: function (clientId) {
+    return supabase.from("body_scores").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
+      var items = rows.map(rowToBodyScore);
+      items.sort(function (a, b) { return a.recordedAt < b.recordedAt ? -1 : a.recordedAt > b.recordedAt ? 1 : 0; });
+      return items;
+    });
+  },
+  createMany: function (inputs) {
+    if (!inputs || inputs.length === 0) return Promise.resolve([]);
+    var rows = inputs.map(function (input) { return bodyScoreToRow(Object.assign({ id: generateId() }, input)); });
+    return supabase.from("body_scores").insert(rows).select().then(checkError).then(function (rows) {
+      return rows.map(rowToBodyScore);
+    }).then(afterWrite);
+  },
 };
 
 /* Deep-clones a saved program's exercises into a fresh, independent set of
