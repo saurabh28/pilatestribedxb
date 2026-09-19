@@ -2,6 +2,39 @@
 
 var CHART_W = 320, CHART_H = 140, PAD_X = 10, PAD_TOP = 16, PAD_BOTTOM = 24;
 
+/* Pure geometry for an N-axis radar/spider chart. `radius` is the distance
+   from center to a value of 1.0 (i.e. value === max). Axis 0 points straight
+   up; axes go clockwise. Returns unpadded coordinates (center = radius, radius) —
+   RadarChart below adds its own padding for labels. */
+function radarChartPoints(data, radius) {
+  var n = data.length;
+  var center = radius;
+  if (n === 0) return { axes: [], center: center };
+  var angleStep = (2 * Math.PI) / n;
+  var axes = data.map(function (d, i) {
+    var angle = -Math.PI / 2 + i * angleStep;
+    var max = d.max || 10;
+    var ratio = Math.max(0, Math.min(1, d.value / max));
+    return {
+      label: d.label, value: d.value, angle: angle,
+      vx: center + Math.cos(angle) * radius * ratio,
+      vy: center + Math.sin(angle) * radius * ratio,
+      lx: center + Math.cos(angle) * (radius + 16),
+      ly: center + Math.sin(angle) * (radius + 16),
+    };
+  });
+  return { axes: axes, center: center };
+}
+function ringPolygon(n, radius, center, ratio) {
+  var angleStep = (2 * Math.PI) / n;
+  var pts = [];
+  for (var i = 0; i < n; i++) {
+    var angle = -Math.PI / 2 + i * angleStep;
+    pts.push((center + Math.cos(angle) * radius * ratio).toFixed(1) + "," + (center + Math.sin(angle) * radius * ratio).toFixed(1));
+  }
+  return pts.join(" ");
+}
+
 function LineChart(props) {
   var data = props.data || [];
   var color = props.color || "var(--accent)";
@@ -74,5 +107,39 @@ function ProgressRing(props) {
       transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")",
     }),
     h("text", { x: "50%", y: "52%", textAnchor: "middle", dominantBaseline: "middle", fontSize: size * 0.24, fontWeight: 700, fill: "var(--text)" }, Math.round(clamped) + "%")
+  );
+}
+
+function RadarChart(props) {
+  var data = props.data || [];
+  if (data.length < 3) return h("div", { className: "chart-empty" }, "Add at least 3 tracked areas to see the radar chart.");
+
+  var radius = 90, pad = 40;
+  var size = radius * 2 + pad * 2;
+  var geo = radarChartPoints(data, radius);
+  var axes = geo.axes.map(function (a) {
+    return Object.assign({}, a, { vx: a.vx + pad, vy: a.vy + pad, lx: a.lx + pad, ly: a.ly + pad });
+  });
+  var center = geo.center + pad;
+  var polygon = axes.map(function (a) { return a.vx.toFixed(1) + "," + a.vy.toFixed(1); }).join(" ");
+
+  return h("svg", { viewBox: "0 0 " + size + " " + size, width: "100%", height: size, role: "img", "aria-label": "Body score radar chart" },
+    [0.5, 1].map(function (ratio, i) {
+      return h("polygon", {
+        key: "ring-" + i, points: ringPolygon(data.length, radius, center, ratio),
+        fill: "none", stroke: "var(--separator)", strokeWidth: 1,
+        strokeDasharray: ratio < 1 ? "3,3" : undefined,
+      });
+    }),
+    axes.map(function (a, i) {
+      var outerX = center + Math.cos(a.angle) * radius, outerY = center + Math.sin(a.angle) * radius;
+      return h("line", { key: "spoke-" + i, x1: center, y1: center, x2: outerX, y2: outerY, stroke: "var(--separator)", strokeWidth: 1 });
+    }),
+    h("polygon", { points: polygon, fill: "var(--accent)", fillOpacity: 0.25, stroke: "var(--accent)", strokeWidth: 2 }),
+    axes.map(function (a, i) { return h("circle", { key: "pt-" + i, cx: a.vx, cy: a.vy, r: 2.5, fill: "var(--accent)" }); }),
+    axes.map(function (a, i) {
+      var anchor = a.lx < center - 4 ? "end" : a.lx > center + 4 ? "start" : "middle";
+      return h("text", { key: "label-" + i, x: a.lx, y: a.ly, textAnchor: anchor, dominantBaseline: "middle", fontSize: 10.5, fill: "var(--text-tertiary)" }, a.label);
+    })
   );
 }
