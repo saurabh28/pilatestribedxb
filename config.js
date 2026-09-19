@@ -7,5 +7,5 @@
    Security policy (see supabase/schema.sql) is what actually enforces that
    a trainer can only ever see their own clients. */
 
-window.SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";
-window.SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+window.SUPABASE_URL = "https://otwuisvpbpecknnysviz.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_publishable_OsByYkLMM2MmuBsyoufReA_JmKCsHMz";
