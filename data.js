@@ -644,9 +644,26 @@ function seedDemoDataIfEmpty() {
           { timeframe: "12 months", goal: "Complete a Hyrox event", measurableTarget: "Finish under 90 min", status: "Not started" },
         ].map(function (g) { return Object.assign({ clientId: clientB.id, notes: "" }, g); });
 
+        function bodyScoreRow(clientId, date, scores) {
+          return Object.keys(scores).map(function (area) {
+            return { clientId: clientId, area: area, score: scores[area], source: "assessment", recordedAt: date, notes: "" };
+          });
+        }
+        var bodyScoreInputsA = [].concat(
+          bodyScoreRow(clientA.id, daysAgo(90), { "Core": 4, "Lower back": 5, "Hips": 6, "Hamstring": 6, "Shoulder": 7, "Cervical spine": 7, "Pelvic floor": 3 }),
+          bodyScoreRow(clientA.id, daysAgo(30), { "Core": 6, "Lower back": 6, "Hips": 7, "Hamstring": 7, "Shoulder": 7, "Cervical spine": 8, "Pelvic floor": 6 }),
+          bodyScoreRow(clientA.id, daysAgo(3), { "Core": 8, "Lower back": 7, "Hips": 8, "Hamstring": 8, "Shoulder": 8, "Cervical spine": 8, "Pelvic floor": 8 })
+        );
+        var bodyScoreInputsB = [].concat(
+          bodyScoreRow(clientB.id, daysAgo(40), { "Core": 7, "Lower back": 7, "Hips": 7, "Hamstring": 6, "Shoulder": 4, "Cervical spine": 8, "Pelvic floor": 7 }),
+          bodyScoreRow(clientB.id, daysAgo(10), { "Core": 8, "Lower back": 8, "Hips": 8, "Hamstring": 7, "Shoulder": 6, "Cervical spine": 8, "Pelvic floor": 7 }),
+          bodyScoreRow(clientB.id, daysAgo(2), { "Core": 8, "Lower back": 8, "Hips": 8, "Hamstring": 8, "Shoulder": 8, "Cervical spine": 8, "Pelvic floor": 8 })
+        );
+
         return Promise.all(
           sessionInputsA.concat(sessionInputsB).map(function (s) { return sessionRepository.create(s); })
             .concat(goalInputsA.concat(goalInputsB).map(function (g) { return goalRepository.upsertForTimeframe(g.clientId, g.timeframe, g); }))
+            .concat([bodyScoreRepository.createMany(bodyScoreInputsA), bodyScoreRepository.createMany(bodyScoreInputsB)])
         ).then(function () {
           return { seeded: true, clientIds: [clientA.id, clientB.id], programIds: [programPilates.id, programStrength.id] };
         });
