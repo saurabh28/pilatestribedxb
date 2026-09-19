@@ -13,6 +13,7 @@ var EXERCISE_CATEGORIES = ["Pilates", "Strength", "Cardio", "Mobility", "Yoga", 
 var SIDES = ["Left", "Right", "Both", "N/A"];
 var GOAL_STATUSES = ["Not started", "In progress", "Achieved", "Revised"];
 var GOAL_TIMEFRAMES = ["1 month", "3 months", "6 months", "12 months"];
+var STANDARD_BODY_AREAS = ["Core", "Lower back", "Hips", "Hamstring", "Shoulder", "Cervical spine", "Pelvic floor"];
 
 function generateId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -232,6 +233,38 @@ function programToRow(p) {
   if ("description" in p) row.description = p.description || "";
   if ("exercises" in p) row.exercises = p.exercises || [];
   return row;
+}
+
+function rowToBodyScore(r) {
+  if (!r) return r;
+  return {
+    id: r.id, trainerId: r.trainer_id, clientId: r.client_id, area: r.area,
+    score: r.score, source: r.source, sessionId: r.session_id,
+    notes: r.notes || "", recordedAt: r.recorded_at, createdAt: r.created_at,
+  };
+}
+function bodyScoreToRow(s) {
+  var row = {};
+  if ("id" in s) row.id = s.id;
+  if ("clientId" in s) row.client_id = s.clientId;
+  if ("area" in s) row.area = s.area;
+  if ("score" in s) row.score = s.score;
+  if ("source" in s) row.source = s.source;
+  if ("sessionId" in s) row.session_id = s.sessionId || null;
+  if ("notes" in s) row.notes = s.notes || "";
+  if ("recordedAt" in s) row.recorded_at = s.recordedAt;
+  return row;
+}
+/* Pure reducer: given the full body_scores history for a client, returns the
+   most recently recorded row per area, e.g. { "Core": { area, score, recordedAt, ... } }.
+   Used by the radar chart (which only ever shows the latest value per area). */
+function latestScoresByArea(history) {
+  var latest = {};
+  history.forEach(function (entry) {
+    var current = latest[entry.area];
+    if (!current || entry.recordedAt > current.recordedAt) latest[entry.area] = entry;
+  });
+  return latest;
 }
 
 /* ---------------------------------------------------------------------- */
