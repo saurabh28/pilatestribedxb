@@ -28,6 +28,7 @@ function useClients(filter) {
 }
 function useClient(id) { return useLiveQuery(function () { return id ? clientRepository.get(id) : undefined; }, [id]); }
 function useSessionsForClient(id) { return useLiveQuery(function () { return id ? sessionRepository.listByClient(id) : []; }, [id]); }
+function useBodyScoresForClient(id) { return useLiveQuery(function () { return id ? bodyScoreRepository.listByClient(id) : []; }, [id]); }
 function useSession(id) { return useLiveQuery(function () { return id ? sessionRepository.get(id) : undefined; }, [id]); }
 function useAllSessions() { return useLiveQuery(function () { return sessionRepository.listAll(); }, []); }
 function useGoalsForClient(id) { return useLiveQuery(function () { return id ? goalRepository.listByClient(id) : []; }, [id]); }
@@ -707,8 +708,90 @@ var STATUS_PERCENT = { "Not started": 0, "In progress": 55, Revised: 30, Achieve
 function shortDate(iso) { var d = new Date(iso); return d.toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
 function monthKey(iso) { return iso.slice(0, 7); }
 function monthLabel(key) { var parts = key.split("-").map(Number); return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString(undefined, { month: "short" }); }
+function AssessmentModal(props) {
+  var open = props.open, client = props.client, areas = props.areas;
+  var _s = useState({}), scores = _s[0], setScores = _s[1];
+  var _n = useState(""), notes = _n[0], setNotes = _n[1];
+  var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+
+  useEffect(function () { if (open) { setScores({}); setNotes(""); } }, [open]);
+  if (!open) return null;
+
+  function setScore(area, value) {
+    setScores(function (s) { var next = Object.assign({}, s); next[area] = value; return next; });
+  }
+  function handleSave() {
+    var today = todayIso();
+    var inputs = areas.filter(function (a) { return scores[a] != null && scores[a] !== ""; })
+      .map(function (a) { return { clientId: client.id, area: a, score: Number(scores[a]), source: "assessment", recordedAt: today, notes: notes }; });
+    if (inputs.length === 0) { props.onClose(); return; }
+    setSaving(true);
+    bodyScoreRepository.createMany(inputs).then(function () { props.onClose(); }).finally(function () { setSaving(false); });
+  }
+
+  return h("div", { className: "modal-overlay", onClick: props.onClose },
+    h("div", { className: "modal-sheet", role: "dialog", "aria-modal": "true", onClick: function (e) { e.stopPropagation(); } },
+      h("div", { className: "modal-title" }, "New assessment"),
+      h("div", { className: "stack", style: { marginBottom: 14 } },
+        areas.map(function (area) {
+          return h(TextField, {
+            key: area, label: area, type: "number", min: 1, max: 10, inputMode: "numeric", optional: true,
+            value: scores[area] == null ? "" : scores[area],
+            onChange: function (e) { setScore(area, e.target.value); },
+          });
+        }),
+        h(TextAreaField, { label: "Notes", optional: true, value: notes, onChange: function (e) { setNotes(e.target.value); } })
+      ),
+      h("div", { className: "modal-actions" },
+        h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: props.onClose }, "Cancel"),
+        h(Button, { type: "button", className: "btn-block", onClick: handleSave, disabled: saving }, saving ? "Saving…" : "Save assessment")
+      )
+    )
+  );
+}
+function ManageAreasModal(props) {
+  var open = props.open, client = props.client;
+  var _a = useState(client.trackedBodyAreas || STANDARD_BODY_AREAS), areas = _a[0], setAreas = _a[1];
+  var _c = useState(""), customArea = _c[0], setCustomArea = _c[1];
+  var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+
+  useEffect(function () { if (open) { setAreas(client.trackedBodyAreas || STANDARD_BODY_AREAS); setCustomArea(""); } }, [open, client]);
+  if (!open) return null;
+
+  var allOptions = STANDARD_BODY_AREAS.concat(areas.filter(function (a) { return STANDARD_BODY_AREAS.indexOf(a) === -1; }));
+
+  function addCustom() {
+    var v = customArea.trim();
+    if (!v || areas.indexOf(v) !== -1) return;
+    setAreas(areas.concat([v]));
+    setCustomArea("");
+  }
+  function handleSave() {
+    setSaving(true);
+    clientRepository.update(client.id, { trackedBodyAreas: areas }).then(function () { props.onClose(); }).finally(function () { setSaving(false); });
+  }
+
+  return h("div", { className: "modal-overlay", onClick: props.onClose },
+    h("div", { className: "modal-sheet", role: "dialog", "aria-modal": "true", onClick: function (e) { e.stopPropagation(); } },
+      h("div", { className: "modal-title" }, "Manage tracked areas"),
+      h(MultiSelectChips, { label: "Tracked areas", options: allOptions, value: areas, onChange: setAreas }),
+      h("div", { className: "flex-row gap-8", style: { marginBottom: 14, marginTop: 10 } },
+        h("input", {
+          className: "input", placeholder: "Add a custom area", value: customArea,
+          onChange: function (e) { setCustomArea(e.target.value); },
+          onKeyDown: function (e) { if (e.key === "Enter") { e.preventDefault(); addCustom(); } },
+        }),
+        h(Button, { type: "button", variant: "secondary", onClick: addCustom }, "Add")
+      ),
+      h("div", { className: "modal-actions" },
+        h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: props.onClose }, "Cancel"),
+        h(Button, { type: "button", className: "btn-block", onClick: handleSave, disabled: saving }, saving ? "Saving…" : "Save")
+      )
+    )
+  );
+}
 function ProgressTab(props) {
-  var sessions = props.sessions, goals = props.goals;
+  var client = props.client, sessions = props.sessions, goals = props.goals, bodyScores = props.bodyScores || [];
   var chronological = useMemo(function () { return sessions.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }); }, [sessions]);
   var painPoints = chronological.filter(function (s) { return s.painScore != null; }).map(function (s) { return { label: shortDate(s.date), value: s.painScore }; });
   var rpePoints = chronological.filter(function (s) { return s.rpe != null; }).map(function (s) { return { label: shortDate(s.date), value: s.rpe }; });
@@ -720,7 +803,68 @@ function ProgressTab(props) {
   }, [chronological]);
   var sessionsOverTime = chronological.map(function (s, i) { return { label: shortDate(s.date), value: i + 1 }; });
 
+  var trackedAreas = client.trackedBodyAreas && client.trackedBodyAreas.length ? client.trackedBodyAreas : STANDARD_BODY_AREAS;
+  var latestByArea = useMemo(function () { return latestScoresByArea(bodyScores); }, [bodyScores]);
+  var scoredAreas = trackedAreas.filter(function (a) { return latestByArea[a]; });
+  var overallScore = scoredAreas.length
+    ? scoredAreas.reduce(function (sum, a) { return sum + latestByArea[a].score; }, 0) / scoredAreas.length
+    : null;
+  var radarData = trackedAreas.map(function (area) {
+    var entry = latestByArea[area];
+    return { label: area, value: entry ? entry.score : 0, max: 10 };
+  });
+
+  var _aa = useState(false), assessmentOpen = _aa[0], setAssessmentOpen = _aa[1];
+  var _ma = useState(false), manageAreasOpen = _ma[0], setManageAreasOpen = _ma[1];
+  var _ta = useState(trackedAreas[0] || ""), trendArea = _ta[0], setTrendArea = _ta[1];
+  var trendData = bodyScores.filter(function (s) { return s.area === trendArea; })
+    .map(function (s) { return { label: shortDate(s.recordedAt), value: s.score }; });
+
   return h("div", { className: "stack" },
+    h("div", { className: "chart-card" },
+      h("div", { className: "flex-between", style: { marginBottom: 10 } },
+        h("div", null,
+          h("div", { className: "chart-title" }, "Body score"),
+          h("div", { className: "chart-subtitle" }, scoredAreas.length ? "Overall " + overallScore.toFixed(1) + "/10" : "No assessments yet")
+        ),
+        h("div", { className: "flex-row gap-8" },
+          h(Button, { type: "button", variant: "text", size: "sm", onClick: function () { setManageAreasOpen(true); } }, "Manage areas"),
+          h(Button, { type: "button", variant: "secondary", size: "sm", onClick: function () { setAssessmentOpen(true); } }, "New assessment")
+        )
+      ),
+      scoredAreas.length === 0
+        ? h(EmptyState, { icon: h(TargetIcon, { width: 32, height: 32 }), title: "No assessments yet", message: "Run the first body-score assessment to see the radar chart." })
+        : h(React.Fragment, null,
+            h(RadarChart, { data: radarData }),
+            h("div", { className: "stack", style: { gap: 6, marginTop: 12 } },
+              trackedAreas.map(function (area) {
+                var entry = latestByArea[area];
+                var score = entry ? entry.score : 0;
+                return h("div", { key: area, className: "flex-between", style: { fontSize: 13 } },
+                  h("span", null, area),
+                  h("div", { className: "flex-row gap-8", style: { alignItems: "center" } },
+                    h("div", { style: { width: 80, height: 6, background: "var(--pill-bg)", borderRadius: 3, overflow: "hidden" } },
+                      h("div", { style: { width: (score / 10 * 100) + "%", height: "100%", background: "var(--accent)" } })
+                    ),
+                    h("span", { className: "text-secondary" }, entry ? score + "/10" : "—")
+                  )
+                );
+              })
+            )
+          )
+    ),
+    trackedAreas.length > 0 && h("div", { className: "chart-card" },
+      h("div", { className: "flex-between", style: { marginBottom: 8, alignItems: "flex-end" } },
+        h("div", null, h("div", { className: "chart-title" }, "Body score trend"), h("div", { className: "chart-subtitle" }, "One area over time")),
+        h("div", { style: { minWidth: 160 } },
+          h(SelectField, { label: "Area", value: trendArea, onChange: function (e) { setTrendArea(e.target.value); } },
+            trackedAreas.map(function (a) { return h("option", { key: a, value: a }, a); }))
+        )
+      ),
+      h(LineChart, { data: trendData, yMin: 1, yMax: 10, formatValue: function (v) { return v + "/10"; } })
+    ),
+    h(AssessmentModal, { open: assessmentOpen, client: client, areas: trackedAreas, onClose: function () { setAssessmentOpen(false); } }),
+    h(ManageAreasModal, { open: manageAreasOpen, client: client, onClose: function () { setManageAreasOpen(false); } }),
     h("div", { className: "chart-card" }, h("div", { className: "chart-title" }, "Sessions over time"), h("div", { className: "chart-subtitle" }, "Cumulative sessions completed"), h(LineChart, { data: sessionsOverTime, formatValue: function (v) { return "" + v; } })),
     h("div", { className: "chart-card" }, h("div", { className: "chart-title" }, "Session attendance"), h("div", { className: "chart-subtitle" }, "Sessions per month (last 6 months)"), h(BarChart, { data: attendanceByMonth })),
     h("div", { className: "chart-card" }, h("div", { className: "chart-title" }, "Pain score over time"), h("div", { className: "chart-subtitle" }, "0 (none) – 10 (severe)"), h(LineChart, { data: painPoints, color: "var(--danger)", yMin: 0, yMax: 10, formatValue: function (v) { return v + "/10"; } })),
@@ -749,6 +893,7 @@ function ClientProfilePage(props) {
   var tab = route.query.tab || "overview";
   var client = useClient(clientId);
   var sessions = useSessionsForClient(clientId);
+  var bodyScores = useBodyScoresForClient(clientId);
   var goals = useGoalsForClient(clientId);
   var assignedProgram = useProgram(client && client.assignedProgramId);
 
@@ -790,7 +935,7 @@ function ClientProfilePage(props) {
       tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram }),
       tab === "sessions" && h(SessionsTab, { client: client, sessions: sessions }),
       tab === "goals" && h(GoalsTab, { client: client, goals: goals || [] }),
-      tab === "progress" && h(ProgressTab, { client: client, sessions: sessions, goals: goals || [] })
+      tab === "progress" && h(ProgressTab, { client: client, sessions: sessions, goals: goals || [], bodyScores: bodyScores || [] })
     )
   );
 }
