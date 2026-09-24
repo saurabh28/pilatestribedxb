@@ -907,7 +907,7 @@ function ProgressTab(props) {
 
 var ROM_SCORE_LABEL = { 2: "Meets norm", 1: "Borderline", 0: "Restricted/Pain" };
 function blankMovementScreenForm() {
-  return { movement: {}, deadHangSeconds: "", deadHangPain: false, rom: {}, notes: "" };
+  return { screenedAt: todayIso(), movement: {}, deadHangSeconds: "", deadHangPain: false, rom: {}, notes: "" };
 }
 var RESULT_TONE = { green: "success", amber: "warning", red: "danger" };
 var RESULT_COLOR_VAR = { green: "var(--success)", amber: "var(--warning)", red: "var(--danger)" };
@@ -966,6 +966,15 @@ function ScreeningTab(props) {
       h("div", { className: "result-interpretation" }, RESULT_INTERPRETATION[latest.overallResult]),
       delta != null && h("div", { className: "result-delta " + (delta >= 0 ? "positive" : "negative") }, (delta >= 0 ? "+" : "") + delta + " since last screen"),
       h("div", { className: "result-date" }, "Screened " + formatDate(latest.screenedAt))
+    ),
+    h("div", { className: "chart-card" },
+      h("div", { className: "chart-title" }, "Readiness score over time"),
+      h("div", { className: "chart-subtitle" }, "Across all screenings"),
+      h(LineChart, {
+        data: screens.map(function (s) { return { label: shortDate(s.screenedAt), value: s.readinessScore }; }),
+        yMin: 0, yMax: 100, color: RESULT_COLOR_VAR[latest.overallResult],
+        formatValue: function (v) { return v + "/100"; },
+      })
     ),
     h("div", { className: "chart-card" },
       h("div", { className: "chart-title" }, "Movement Quality"),
@@ -1070,13 +1079,13 @@ function MovementScreenFormPage(props) {
     });
 
     var screeningInput = {
-      clientId: client.id, screenedAt: todayIso(), movementScores: movementScores, romScores: romScores,
+      clientId: client.id, screenedAt: form.screenedAt, movementScores: movementScores, romScores: romScores,
       overallResult: overallResult, readinessScore: readinessScore, notes: form.notes,
     };
 
     movementScreenRepository.create(screeningInput).then(function () {
       if (painfulLabels.length === 0) return;
-      var note = "Pain noted during movement screen — " + painfulLabels.join(", ") + ", " + formatDate(todayIso()) + ".";
+      var note = "Pain noted during movement screen — " + painfulLabels.join(", ") + ", " + formatDate(form.screenedAt) + ".";
       var combined = client.injuriesAndPain ? client.injuriesAndPain + "\n" + note : note;
       return clientRepository.update(client.id, { injuriesAndPain: combined });
     }).then(function () {
@@ -1089,8 +1098,16 @@ function MovementScreenFormPage(props) {
   return h(React.Fragment, null,
     h(PageHeader, { title: "PilatesTribe Movement & ROM Screen", back: true }),
     h("div", { className: "page-content" },
-      h("p", { className: "text-secondary", style: { marginBottom: 14, fontSize: 14 } }, "For " + client.fullName + " — " + formatDate(todayIso())),
+      h("p", { className: "text-secondary", style: { marginBottom: 14, fontSize: 14 } }, "For " + client.fullName),
       h("form", { onSubmit: handleSubmit, noValidate: true },
+        h("fieldset", { className: "form-group" },
+          h("legend", null, "Screening details"),
+          h(TextField, {
+            label: "Date screened", type: "date", value: form.screenedAt,
+            onChange: function (e) { setForm(Object.assign({}, form, { screenedAt: e.target.value })); },
+            hint: "If this screening actually happened on a different day than today, set that date here so the trend chart stays accurate.",
+          })
+        ),
         h("fieldset", { className: "form-group" },
           h("legend", null, "A. Movement Screening (0–3: Pain/Unable → Optimal)"),
           MOVEMENT_TESTS.map(function (t) {
