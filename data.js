@@ -417,6 +417,7 @@ var bodyScoreRepository = {
       return rows.map(rowToBodyScore);
     }).then(afterWrite);
   },
+  remove: function (id) { return supabase.from("body_scores").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
 /* Deep-clones a saved program's exercises into a fresh, independent set of

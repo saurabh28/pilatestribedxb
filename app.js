@@ -817,8 +817,10 @@ function ProgressTab(props) {
   var _aa = useState(false), assessmentOpen = _aa[0], setAssessmentOpen = _aa[1];
   var _ma = useState(false), manageAreasOpen = _ma[0], setManageAreasOpen = _ma[1];
   var _ta = useState(trackedAreas[0] || ""), trendArea = _ta[0], setTrendArea = _ta[1];
-  var trendData = bodyScores.filter(function (s) { return s.area === trendArea; })
-    .map(function (s) { return { label: shortDate(s.recordedAt), value: s.score }; });
+  var _de = useState(null), deleteEntryId = _de[0], setDeleteEntryId = _de[1];
+  var trendEntries = bodyScores.filter(function (s) { return s.area === trendArea; });
+  var trendData = trendEntries.map(function (s) { return { label: shortDate(s.recordedAt), value: s.score }; });
+  var trendEntriesRecent = trendEntries.slice().reverse();
 
   return h("div", { className: "stack" },
     h("div", { className: "chart-card" },
@@ -861,10 +863,25 @@ function ProgressTab(props) {
             trackedAreas.map(function (a) { return h("option", { key: a, value: a }, a); }))
         )
       ),
-      h(LineChart, { data: trendData, yMin: 1, yMax: 10, formatValue: function (v) { return v + "/10"; } })
+      h(LineChart, { data: trendData, yMin: 1, yMax: 10, formatValue: function (v) { return v + "/10"; } }),
+      trendEntriesRecent.length > 0 && h("div", { className: "stack", style: { gap: 6, marginTop: 12 } },
+        trendEntriesRecent.map(function (entry) {
+          return h("div", { key: entry.id, className: "flex-between", style: { fontSize: 13 } },
+            h("span", null, formatDate(entry.recordedAt) + " — " + entry.score + "/10" + (entry.source === "session" ? " (session)" : " (assessment)")),
+            h("button", { type: "button", className: "icon-btn", "aria-label": "Delete this entry", onClick: function () { setDeleteEntryId(entry.id); } }, h(TrashIcon, { width: 15, height: 15 }))
+          );
+        })
+      )
     ),
     h(AssessmentModal, { open: assessmentOpen, client: client, areas: trackedAreas, onClose: function () { setAssessmentOpen(false); } }),
     h(ManageAreasModal, { open: manageAreasOpen, client: client, onClose: function () { setManageAreasOpen(false); } }),
+    h(ConfirmDialog, {
+      open: !!deleteEntryId, title: "Delete this score?",
+      message: "This permanently removes this body-score entry. This cannot be undone.",
+      confirmLabel: "Delete",
+      onCancel: function () { setDeleteEntryId(null); },
+      onConfirm: function () { bodyScoreRepository.remove(deleteEntryId).then(function () { setDeleteEntryId(null); }); },
+    }),
     h("div", { className: "chart-card" }, h("div", { className: "chart-title" }, "Sessions over time"), h("div", { className: "chart-subtitle" }, "Cumulative sessions completed"), h(LineChart, { data: sessionsOverTime, formatValue: function (v) { return "" + v; } })),
     h("div", { className: "chart-card" }, h("div", { className: "chart-title" }, "Session attendance"), h("div", { className: "chart-subtitle" }, "Sessions per month (last 6 months)"), h(BarChart, { data: attendanceByMonth })),
     h("div", { className: "chart-card" }, h("div", { className: "chart-title" }, "Pain score over time"), h("div", { className: "chart-subtitle" }, "0 (none) – 10 (severe)"), h(LineChart, { data: painPoints, color: "var(--danger)", yMin: 0, yMax: 10, formatValue: function (v) { return v + "/10"; } })),
