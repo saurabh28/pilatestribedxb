@@ -202,7 +202,35 @@ grant select, insert, update, delete on
   public.programs, public.clients, public.sessions, public.goals, public.body_scores
   to anon, authenticated;
 
+-- ----------------------------------------------------------------------------
+-- movement_screens -- one row per Movement & ROM screening event. Scores are
+-- stored as JSONB keyed by test id (from movementScreen.js), never as fixed
+-- columns, so the test list can keep changing without a migration.
+-- ----------------------------------------------------------------------------
+create table if not exists movement_screens (
+  id uuid primary key default gen_random_uuid(),
+  trainer_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  client_id uuid not null references clients(id) on delete cascade,
+  screened_at date not null default current_date,
+  movement_scores jsonb not null default '{}'::jsonb,
+  rom_scores jsonb not null default '{}'::jsonb,
+  overall_result text not null check (overall_result in ('green','amber','red')),
+  readiness_score integer not null check (readiness_score between 0 and 100),
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists movement_screens_trainer_idx on movement_screens (trainer_id);
+create index if not exists movement_screens_client_date_idx on movement_screens (client_id, screened_at);
+
+alter table movement_screens enable row level security;
+drop policy if exists "movement_screens_owner_all" on movement_screens;
+create policy "movement_screens_owner_all" on movement_screens
+  for all using (trainer_id = auth.uid()) with check (trainer_id = auth.uid());
+
+grant select, insert, update, delete on public.movement_screens to anon, authenticated;
+
 -- ============================================================================
--- Done. Verify in Table Editor: you should see 5 tables (programs, clients,
--- sessions, goals, body_scores), each with a shield icon indicating RLS is on.
+-- Done. Verify in Table Editor: you should see 6 tables (programs, clients,
+-- sessions, goals, body_scores, movement_screens), each with a shield icon
+-- indicating RLS is on.
 -- ============================================================================
