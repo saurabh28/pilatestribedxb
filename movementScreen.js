@@ -63,13 +63,13 @@ var ROM_TESTS = [
       { name: "Doorway pec stretch", sets: "2x30s", cue: "Step through gently until you feel a stretch across the chest." },
       { name: "Prone Y-raises", sets: "3x10", cue: "Lead with the thumbs up, squeeze the shoulder blades together." },
     ] },
-  { id: "thomasTest", label: "Thomas Test (Hip Flexor Tightness)", maxScore: 2, normative: "0° (thigh level with table)",
+  { id: "thomasTest", label: "Thomas Test", maxScore: 2, normative: "0° (thigh level with table)",
     corrective: [
       { name: "Half-kneeling hip flexor stretch", sets: "2x30s/side", cue: "Tuck the pelvis under, squeeze the glute on the down knee." },
       { name: "Couch stretch", sets: "2x30s/side", cue: "Keep hips square, ease in only as far as comfortable." },
       { name: "Glute bridge march", sets: "3x8/side", cue: "Keep hips level as you lift each foot." },
     ] },
-  { id: "pslr", label: "PSLR (Hamstring Flexibility)", maxScore: 2, normative: "≥ 80°",
+  { id: "pslr", label: "PSLR", maxScore: 2, normative: "≥ 80°",
     corrective: [
       { name: "Supine hamstring stretch with strap", sets: "2x30s/side", cue: "Keep the raised leg straight, gently pull without bouncing." },
       { name: "Assisted Nordic curl eccentrics", sets: "2x6", cue: "Lower as slowly as control allows." },
