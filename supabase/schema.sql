@@ -187,6 +187,21 @@ drop policy if exists "body_scores_owner_all" on body_scores;
 create policy "body_scores_owner_all" on body_scores
   for all using (trainer_id = auth.uid()) with check (trainer_id = auth.uid());
 
+-- ----------------------------------------------------------------------------
+-- Base table grants.
+--
+-- If your project has "Automatically expose new tables" turned OFF (Project
+-- Settings -> Data API), Postgres never grants anon/authenticated any
+-- privilege on a new table at all -- the request is rejected before Row
+-- Level Security even runs (error: "permission denied for table X"). RLS
+-- only decides which ROWS a role can see once it already has table-level
+-- access, so both are required. Safe to re-run.
+-- ----------------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on
+  public.programs, public.clients, public.sessions, public.goals, public.body_scores
+  to anon, authenticated;
+
 -- ============================================================================
 -- Done. Verify in Table Editor: you should see 5 tables (programs, clients,
 -- sessions, goals, body_scores), each with a shield icon indicating RLS is on.
