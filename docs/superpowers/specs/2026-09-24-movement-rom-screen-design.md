@@ -1,6 +1,6 @@
 # PilatesTribe Movement & ROM Screen — Design
 
-Status: Approved by owner 2026-09-24, building against the live Supabase project (otwuisvpbpecknnysviz).
+Status: Approved by owner 2026-09-24, building against the live Supabase project (otwuisvpbpecknnysviz). Owner's explicit direction: "keep it premium" — the results report is the client-facing moment, so visual polish (animated readiness ring fill-in, smooth green/amber/red color transitions, generous spacing, refined typography reusing the app's existing sage-green design system) is a real requirement here, not a nice-to-have.
 
 ## Purpose
 
