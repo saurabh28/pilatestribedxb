@@ -420,6 +420,41 @@ var bodyScoreRepository = {
   remove: function (id) { return supabase.from("body_scores").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
+function rowToMovementScreen(r) {
+  if (!r) return r;
+  return {
+    id: r.id, trainerId: r.trainer_id, clientId: r.client_id, screenedAt: r.screened_at,
+    movementScores: r.movement_scores || {}, romScores: r.rom_scores || {},
+    overallResult: r.overall_result, readinessScore: r.readiness_score,
+    notes: r.notes || "", createdAt: r.created_at,
+  };
+}
+function movementScreenToRow(s) {
+  var row = {};
+  if ("id" in s) row.id = s.id;
+  if ("clientId" in s) row.client_id = s.clientId;
+  if ("screenedAt" in s) row.screened_at = s.screenedAt;
+  if ("movementScores" in s) row.movement_scores = s.movementScores || {};
+  if ("romScores" in s) row.rom_scores = s.romScores || {};
+  if ("overallResult" in s) row.overall_result = s.overallResult;
+  if ("readinessScore" in s) row.readiness_score = s.readinessScore;
+  if ("notes" in s) row.notes = s.notes || "";
+  return row;
+}
+var movementScreenRepository = {
+  listByClient: function (clientId) {
+    return supabase.from("movement_screens").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
+      var items = rows.map(rowToMovementScreen);
+      items.sort(function (a, b) { return a.screenedAt < b.screenedAt ? -1 : a.screenedAt > b.screenedAt ? 1 : 0; });
+      return items;
+    });
+  },
+  create: function (input) {
+    var row = movementScreenToRow(Object.assign({ id: generateId() }, input));
+    return supabase.from("movement_screens").insert(row).select().single().then(checkError).then(rowToMovementScreen).then(afterWrite);
+  },
+};
+
 /* Deep-clones a saved program's exercises into a fresh, independent set of
    exercise records (new ids all the way down) so editing them inside a
    session never mutates the original template. Unchanged from the local
