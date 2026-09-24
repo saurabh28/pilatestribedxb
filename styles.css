@@ -192,7 +192,7 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 100; padding: 12px; }
 @media (min-width: 560px) { .modal-overlay { align-items: center; } }
-.modal-sheet { background: var(--surface); border-radius: 18px; width: 100%; max-width: 420px; padding: 22px; box-shadow: var(--shadow); }
+.modal-sheet { background: var(--surface); border-radius: 18px; width: 100%; max-width: 420px; padding: 22px; box-shadow: var(--shadow); max-height: calc(100vh - 24px); overflow-y: auto; }
 .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
 .modal-message { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.4; }
 .modal-actions { display: flex; gap: 10px; }
