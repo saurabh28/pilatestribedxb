@@ -908,6 +908,115 @@ function ProgressTab(props) {
 function blankMovementScreenForm() {
   return { movement: {}, deadHangSeconds: "", deadHangPain: false, rom: {}, notes: "" };
 }
+var RESULT_TONE = { green: "success", amber: "warning", red: "danger" };
+var RESULT_COLOR_VAR = { green: "var(--success)", amber: "var(--warning)", red: "var(--danger)" };
+
+function ScreeningTab(props) {
+  var client = props.client, screens = props.screens;
+  var latest = screens.length ? screens[screens.length - 1] : null;
+  var previous = screens.length > 1 ? screens[screens.length - 2] : null;
+
+  if (!latest) {
+    return h("div", { className: "stack" },
+      h(EmptyState, {
+        icon: h(TargetIcon, { width: 36, height: 36 }),
+        title: "No movement screen yet",
+        message: "Run the PilatesTribe Movement & ROM Screen to get a readiness score, a Green/Amber/Red result, and a corrective exercise plan.",
+        action: h(Link, { to: "/clients/" + client.id + "/movement-screen/new" }, h(Button, null, h(PlusCircleIcon, { width: 18, height: 18 }), "Run first screening")),
+      })
+    );
+  }
+
+  var delta = previous ? latest.readinessScore - previous.readinessScore : null;
+
+  var movementSeries = [{
+    data: MOVEMENT_TESTS.map(function (t) { return { label: t.label, value: latest.movementScores[t.id] == null ? 0 : latest.movementScores[t.id], max: t.maxScore }; }),
+    color: RESULT_COLOR_VAR[latest.overallResult], filled: true,
+  }];
+  if (previous) {
+    movementSeries.push({
+      data: MOVEMENT_TESTS.map(function (t) { return { label: t.label, value: previous.movementScores[t.id] == null ? 0 : previous.movementScores[t.id], max: t.maxScore }; }),
+      color: "var(--text-tertiary)", dashed: true, filled: false,
+    });
+  }
+
+  var romSeries = [
+    { data: ROM_TESTS.map(function (t) { var v = latest.romScores[t.id] || {}; return { label: t.label, value: v.left == null ? 0 : v.left, max: t.maxScore }; }), color: "var(--info)", filled: true },
+    { data: ROM_TESTS.map(function (t) { var v = latest.romScores[t.id] || {}; return { label: t.label, value: v.right == null ? 0 : v.right, max: t.maxScore }; }), color: "var(--accent)", filled: true },
+  ];
+
+  var weakTests = [];
+  MOVEMENT_TESTS.forEach(function (t) {
+    var v = latest.movementScores[t.id];
+    if (v != null && v < t.maxScore) weakTests.push({ test: t, painful: v === 0, detail: null });
+  });
+  ROM_TESTS.forEach(function (t) {
+    var v = latest.romScores[t.id];
+    if (!v) return;
+    var worst = Math.min(v.left == null ? t.maxScore : v.left, v.right == null ? t.maxScore : v.right);
+    if (worst < t.maxScore) weakTests.push({ test: t, painful: worst === 0, detail: "L " + (v.left == null ? "—" : v.left) + " / R " + (v.right == null ? "—" : v.right) });
+  });
+  weakTests.sort(function (a, b) { return (b.painful ? 1 : 0) - (a.painful ? 1 : 0); });
+
+  return h("div", { className: "stack" },
+    h("div", { className: "chart-card result-hero" },
+      h("div", { className: "readiness-ring-wrap" }, h(ProgressRing, { size: 120, percent: latest.readinessScore, color: RESULT_COLOR_VAR[latest.overallResult] })),
+      h("div", { style: { marginTop: 12 } }, h(Badge, { tone: RESULT_TONE[latest.overallResult] }, latest.overallResult.toUpperCase())),
+      h("div", { className: "result-interpretation" }, RESULT_INTERPRETATION[latest.overallResult]),
+      delta != null && h("div", { className: "result-delta " + (delta >= 0 ? "positive" : "negative") }, (delta >= 0 ? "+" : "") + delta + " since last screen"),
+      h("div", { className: "result-date" }, "Screened " + formatDate(latest.screenedAt))
+    ),
+    h("div", { className: "chart-card" },
+      h("div", { className: "chart-title" }, "Movement Quality"),
+      h("div", { className: "chart-subtitle" }, previous ? "Solid = latest, dashed = previous screen" : "This screening"),
+      h(RadarChart, { series: movementSeries })
+    ),
+    h("div", { className: "chart-card" },
+      h("div", { className: "chart-title" }, "Mobility Balance"),
+      h("div", { className: "chart-subtitle" }, "Left vs right, same screening"),
+      h(RadarChart, { series: romSeries }),
+      h("div", { className: "screen-legend" },
+        h("span", null, h("span", { className: "dot", style: { background: "var(--info)" } }), "Left"),
+        h("span", null, h("span", { className: "dot", style: { background: "var(--accent)" } }), "Right")
+      )
+    ),
+    weakTests.length > 0 && h("div", { className: "chart-card" },
+      h("div", { className: "chart-title" }, "Corrective exercises"),
+      h("div", { className: "chart-subtitle" }, "Weakest and painful areas first"),
+      h("div", { className: "corrective-list" },
+        weakTests.map(function (w) {
+          return h("div", { key: w.test.id, className: "exercise-card" },
+            h("div", { className: "corrective-test-header" },
+              h("span", { className: "test-name" }, w.test.label + (w.detail ? " (" + w.detail + ")" : "")),
+              w.painful && h(Badge, { tone: "danger" }, "Pain")
+            ),
+            w.test.corrective.map(function (ex, i) {
+              return h("div", { key: i, style: { fontSize: 13, marginBottom: i === w.test.corrective.length - 1 ? 0 : 6 } },
+                h("strong", null, ex.name), " — " + ex.sets + ". ", h("span", { className: "text-secondary" }, ex.cue)
+              );
+            })
+          );
+        })
+      )
+    ),
+    h(Link, { to: "/clients/" + client.id + "/movement-screen/new" }, h(Button, { className: "btn-block" }, "Re-screen")),
+    screens.length > 1 && h("section", null,
+      h(SectionLabel, null, "History"),
+      h("div", { className: "list-card" },
+        screens.slice().reverse().map(function (s) {
+          return h("div", { key: s.id, className: "list-row" },
+            h("div", { className: "list-row-body" },
+              h("div", { className: "list-row-title" }, formatDate(s.screenedAt)),
+              h("div", { className: "list-row-subtitle" }, "Readiness " + s.readinessScore + "/100")
+            ),
+            h(Badge, { tone: RESULT_TONE[s.overallResult] }, s.overallResult.toUpperCase())
+          );
+        })
+      )
+    )
+  );
+}
+
 function MovementScreenFormPage(props) {
   var client = useClient(props.clientId);
   var _f = useState(blankMovementScreenForm()), form = _f[0], setForm = _f[1];
