@@ -29,6 +29,7 @@ function useClients(filter) {
 function useClient(id) { return useLiveQuery(function () { return id ? clientRepository.get(id) : undefined; }, [id]); }
 function useSessionsForClient(id) { return useLiveQuery(function () { return id ? sessionRepository.listByClient(id) : []; }, [id]); }
 function useBodyScoresForClient(id) { return useLiveQuery(function () { return id ? bodyScoreRepository.listByClient(id) : []; }, [id]); }
+function useMovementScreensForClient(id) { return useLiveQuery(function () { return id ? movementScreenRepository.listByClient(id) : []; }, [id]); }
 function useSession(id) { return useLiveQuery(function () { return id ? sessionRepository.get(id) : undefined; }, [id]); }
 function useAllSessions() { return useLiveQuery(function () { return sessionRepository.listAll(); }, []); }
 function useGoalsForClient(id) { return useLiveQuery(function () { return id ? goalRepository.listByClient(id) : []; }, [id]); }
@@ -911,6 +912,7 @@ function ClientProfilePage(props) {
   var client = useClient(clientId);
   var sessions = useSessionsForClient(clientId);
   var bodyScores = useBodyScoresForClient(clientId);
+  var movementScreens = useMovementScreensForClient(clientId);
   var goals = useGoalsForClient(clientId);
   var assignedProgram = useProgram(client && client.assignedProgramId);
 
@@ -947,12 +949,13 @@ function ClientProfilePage(props) {
       client.currentGoal && h("div", { className: "card" }, h("div", { className: "section-label", style: { marginBottom: 4 } }, "Current goal"), h("p", { style: { margin: 0, fontSize: 14.5 } }, client.currentGoal)),
       h(TabBar, {
         value: tab, onChange: function (t) { setQueryParam("tab", t); },
-        tabs: [{ value: "overview", label: "Overview" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }],
+        tabs: [{ value: "overview", label: "Overview" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
       }),
       tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram }),
       tab === "sessions" && h(SessionsTab, { client: client, sessions: sessions }),
       tab === "goals" && h(GoalsTab, { client: client, goals: goals || [] }),
-      tab === "progress" && h(ProgressTab, { client: client, sessions: sessions, goals: goals || [], bodyScores: bodyScores || [] })
+      tab === "progress" && h(ProgressTab, { client: client, sessions: sessions, goals: goals || [], bodyScores: bodyScores || [] }),
+      tab === "screening" && h(ScreeningTab, { client: client, screens: movementScreens || [] })
     )
   );
 }
@@ -1543,6 +1546,7 @@ function App() {
   else if (p[0] === "clients" && p[1] === "new") page = h(ClientFormPage, { mode: "create" });
   else if (p[0] === "clients" && p.length === 3 && p[2] === "edit") page = h(ClientFormPage, { mode: "edit", clientId: p[1] });
   else if (p[0] === "clients" && p.length === 4 && p[2] === "sessions" && p[3] === "new") page = h(SessionFormPage, { mode: "create", clientId: p[1] });
+  else if (p[0] === "clients" && p.length === 4 && p[2] === "movement-screen" && p[3] === "new") page = h(MovementScreenFormPage, { clientId: p[1] });
   else if (p[0] === "clients" && p.length === 2) page = h(ClientProfilePage, { clientId: p[1] });
   else if (p[0] === "add-session") page = h(AddSessionPickerPage, null);
   else if (p[0] === "sessions" && p.length === 1) page = h(AllSessionsPage, null);
