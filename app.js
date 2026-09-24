@@ -905,6 +905,145 @@ function ProgressTab(props) {
   );
 }
 
+function blankMovementScreenForm() {
+  return { movement: {}, deadHangSeconds: "", deadHangPain: false, rom: {}, notes: "" };
+}
+function MovementScreenFormPage(props) {
+  var client = useClient(props.clientId);
+  var _f = useState(blankMovementScreenForm()), form = _f[0], setForm = _f[1];
+  var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+
+  function setMovementScore(testId, value) {
+    setForm(function (f) { var next = Object.assign({}, f, { movement: Object.assign({}, f.movement) }); next.movement[testId] = value; return next; });
+  }
+  function setRomScore(testId, side, value) {
+    setForm(function (f) {
+      var next = Object.assign({}, f, { rom: Object.assign({}, f.rom) });
+      var current = Object.assign({}, next.rom[testId]);
+      current[side] = value;
+      next.rom[testId] = current;
+      return next;
+    });
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!client) return;
+    setSaving(true);
+
+    var movementScores = {};
+    MOVEMENT_TESTS.forEach(function (t) {
+      if (t.timedHang) {
+        var seconds = form.deadHangSeconds === "" ? null : Number(form.deadHangSeconds);
+        movementScores[t.id] = deadHangScoreFromSeconds(seconds, form.deadHangPain);
+      } else if (form.movement[t.id] != null && form.movement[t.id] !== "") {
+        movementScores[t.id] = Number(form.movement[t.id]);
+      }
+    });
+    var romScores = {};
+    ROM_TESTS.forEach(function (t) {
+      var side = form.rom[t.id] || {};
+      var entry = {};
+      if (side.left != null && side.left !== "") entry.left = Number(side.left);
+      if (side.right != null && side.right !== "") entry.right = Number(side.right);
+      if (entry.left != null || entry.right != null) romScores[t.id] = entry;
+    });
+
+    var overallResult = computeOverallResult(movementScores, romScores);
+    var readinessScore = computeReadinessScore(movementScores, romScores);
+
+    var painfulLabels = [];
+    MOVEMENT_TESTS.forEach(function (t) { if (movementScores[t.id] === 0) painfulLabels.push(t.label); });
+    ROM_TESTS.forEach(function (t) {
+      var v = romScores[t.id];
+      if (v && (v.left === 0 || v.right === 0)) painfulLabels.push(t.label);
+    });
+
+    var screeningInput = {
+      clientId: client.id, screenedAt: todayIso(), movementScores: movementScores, romScores: romScores,
+      overallResult: overallResult, readinessScore: readinessScore, notes: form.notes,
+    };
+
+    movementScreenRepository.create(screeningInput).then(function () {
+      if (painfulLabels.length === 0) return;
+      var note = "Pain noted during movement screen — " + painfulLabels.join(", ") + ", " + formatDate(todayIso()) + ".";
+      var combined = client.injuriesAndPain ? client.injuriesAndPain + "\n" + note : note;
+      return clientRepository.update(client.id, { injuriesAndPain: combined });
+    }).then(function () {
+      navigate("/clients/" + client.id + "?tab=screening");
+    }).finally(function () { setSaving(false); });
+  }
+
+  if (!client) return h(React.Fragment, null, h(PageHeader, { title: "Movement Screen", back: true }), h("div", { className: "page-content" }));
+
+  return h(React.Fragment, null,
+    h(PageHeader, { title: "PilatesTribe Movement & ROM Screen", back: true }),
+    h("div", { className: "page-content" },
+      h("p", { className: "text-secondary", style: { marginBottom: 14, fontSize: 14 } }, "For " + client.fullName + " — " + formatDate(todayIso())),
+      h("form", { onSubmit: handleSubmit, noValidate: true },
+        h("fieldset", { className: "form-group" },
+          h("legend", null, "A. Movement Screening (0–3: Pain/Unable → Optimal)"),
+          MOVEMENT_TESTS.map(function (t) {
+            if (t.timedHang) {
+              return h("div", { key: t.id, className: "form-grid-2" },
+                h(TextField, {
+                  label: t.label + " — hold time (seconds)", type: "number", min: 0, inputMode: "numeric", optional: true,
+                  value: form.deadHangSeconds, onChange: function (e) { setForm(Object.assign({}, form, { deadHangSeconds: e.target.value })); },
+                }),
+                h("label", { className: "checkbox-row", style: { alignSelf: "center" } },
+                  h("input", { type: "checkbox", checked: form.deadHangPain, onChange: function (e) { setForm(Object.assign({}, form, { deadHangPain: e.target.checked })); } }),
+                  "Client reported pain"
+                )
+              );
+            }
+            return h(SelectField, {
+              key: t.id, label: t.label, optional: true,
+              value: form.movement[t.id] == null ? "" : form.movement[t.id],
+              onChange: function (e) { setMovementScore(t.id, e.target.value); },
+            },
+              h("option", { value: "" }, "— Not tested —"),
+              [0, 1, 2, 3].map(function (n) { return h("option", { key: n, value: n }, n + (n === t.maxScore ? " (Optimal)" : n === 0 ? " (Pain/Unable)" : "")); })
+            );
+          })
+        ),
+        h("fieldset", { className: "form-group" },
+          h("legend", null, "B. Range of Motion Screening (0–2: Restricted → Meets Norm)"),
+          ROM_TESTS.map(function (t) {
+            var side = form.rom[t.id] || {};
+            return h("div", { key: t.id, style: { marginBottom: 14 } },
+              h("div", { style: { fontWeight: 700, fontSize: 13.5, marginBottom: 2 } }, t.label),
+              h("div", { className: "text-tertiary", style: { fontSize: 11.5, marginBottom: 6 } }, "Normative: " + t.normative),
+              h("div", { className: "form-grid-2" },
+                h(SelectField, {
+                  label: "Left", optional: true, value: side.left == null ? "" : side.left,
+                  onChange: function (e) { setRomScore(t.id, "left", e.target.value); },
+                },
+                  h("option", { value: "" }, "—"),
+                  [0, 1, 2].map(function (n) { return h("option", { key: n, value: n }, n); })
+                ),
+                h(SelectField, {
+                  label: "Right", optional: true, value: side.right == null ? "" : side.right,
+                  onChange: function (e) { setRomScore(t.id, "right", e.target.value); },
+                },
+                  h("option", { value: "" }, "—"),
+                  [0, 1, 2].map(function (n) { return h("option", { key: n, value: n }, n); })
+                )
+              )
+            );
+          })
+        ),
+        h("fieldset", { className: "form-group" },
+          h("legend", null, "Notes"),
+          h(TextAreaField, { label: "Corrective focus / observations", optional: true, value: form.notes, onChange: function (e) { setForm(Object.assign({}, form, { notes: e.target.value })); } })
+        ),
+        h("div", { className: "form-actions" },
+          h(Button, { type: "submit", className: "btn-block", disabled: saving }, saving ? "Saving…" : "Save screening")
+        )
+      )
+    )
+  );
+}
+
 function ClientProfilePage(props) {
   var clientId = props.clientId;
   var route = useRoute();
