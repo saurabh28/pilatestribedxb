@@ -97,47 +97,62 @@ function BarChart(props) {
 
 function ProgressRing(props) {
   var size = props.size || 56, stroke = 6;
+  var color = props.color || "var(--accent)";
   var r = (size - stroke) / 2, c = 2 * Math.PI * r;
   var clamped = Math.max(0, Math.min(100, props.percent));
   return h("svg", { width: size, height: size, viewBox: "0 0 " + size + " " + size, role: "img", "aria-label": Math.round(clamped) + "% complete" },
     h("circle", { cx: size / 2, cy: size / 2, r: r, fill: "none", stroke: "var(--pill-bg)", strokeWidth: stroke }),
     h("circle", {
-      cx: size / 2, cy: size / 2, r: r, fill: "none", stroke: "var(--accent)", strokeWidth: stroke,
+      cx: size / 2, cy: size / 2, r: r, fill: "none", stroke: color, strokeWidth: stroke,
       strokeDasharray: c, strokeDashoffset: c - (c * clamped) / 100, strokeLinecap: "round",
       transform: "rotate(-90 " + size / 2 + " " + size / 2 + ")",
+      className: "readiness-ring-arc",
     }),
     h("text", { x: "50%", y: "52%", textAnchor: "middle", dominantBaseline: "middle", fontSize: size * 0.24, fontWeight: 700, fill: "var(--text)" }, Math.round(clamped) + "%")
   );
 }
 
 function RadarChart(props) {
-  var data = props.data || [];
-  if (data.length < 3) return h("div", { className: "chart-empty" }, "Add at least 3 tracked areas to see the radar chart.");
+  var series = props.series;
+  if (!series) series = [{ data: props.data || [], color: props.color || "var(--accent)", filled: true }];
+  var axisSource = series[0] ? series[0].data : [];
+  if (axisSource.length < 3) return h("div", { className: "chart-empty" }, "Add at least 3 tracked areas to see the radar chart.");
 
   var radius = 90, pad = 40;
   var size = radius * 2 + pad * 2;
-  var geo = radarChartPoints(data, radius);
-  var axes = geo.axes.map(function (a) {
-    return Object.assign({}, a, { vx: a.vx + pad, vy: a.vy + pad, lx: a.lx + pad, ly: a.ly + pad });
-  });
-  var center = geo.center + pad;
-  var polygon = axes.map(function (a) { return a.vx.toFixed(1) + "," + a.vy.toFixed(1); }).join(" ");
+  var center = radius + pad;
 
-  return h("svg", { viewBox: "0 0 " + size + " " + size, width: "100%", height: size, role: "img", "aria-label": "Body score radar chart" },
+  var seriesGeo = series.map(function (s) {
+    var geo = radarChartPoints(s.data, radius);
+    var axes = geo.axes.map(function (a) {
+      return Object.assign({}, a, { vx: a.vx + pad, vy: a.vy + pad, lx: a.lx + pad, ly: a.ly + pad });
+    });
+    var polygon = axes.map(function (a) { return a.vx.toFixed(1) + "," + a.vy.toFixed(1); }).join(" ");
+    return { axes: axes, polygon: polygon, color: s.color || "var(--accent)", dashed: !!s.dashed, filled: s.filled !== false };
+  });
+  var labelAxes = seriesGeo[0].axes;
+
+  return h("svg", { viewBox: "0 0 " + size + " " + size, width: "100%", height: size, role: "img", "aria-label": "Radar chart" },
     [0.5, 1].map(function (ratio, i) {
       return h("polygon", {
-        key: "ring-" + i, points: ringPolygon(data.length, radius, center, ratio),
+        key: "ring-" + i, points: ringPolygon(axisSource.length, radius, center, ratio),
         fill: "none", stroke: "var(--separator)", strokeWidth: 1,
         strokeDasharray: ratio < 1 ? "3,3" : undefined,
       });
     }),
-    axes.map(function (a, i) {
+    labelAxes.map(function (a, i) {
       var outerX = center + Math.cos(a.angle) * radius, outerY = center + Math.sin(a.angle) * radius;
       return h("line", { key: "spoke-" + i, x1: center, y1: center, x2: outerX, y2: outerY, stroke: "var(--separator)", strokeWidth: 1 });
     }),
-    h("polygon", { points: polygon, fill: "var(--accent)", fillOpacity: 0.25, stroke: "var(--accent)", strokeWidth: 2 }),
-    axes.map(function (a, i) { return h("circle", { key: "pt-" + i, cx: a.vx, cy: a.vy, r: 2.5, fill: "var(--accent)" }); }),
-    axes.map(function (a, i) {
+    seriesGeo.map(function (sg, si) {
+      return h("polygon", {
+        key: "series-" + si, points: sg.polygon,
+        fill: sg.filled ? sg.color : "none", fillOpacity: sg.filled ? 0.25 : 0,
+        stroke: sg.color, strokeWidth: 2, strokeDasharray: sg.dashed ? "5,4" : undefined,
+      });
+    }),
+    seriesGeo[0].filled && seriesGeo[0].axes.map(function (a, i) { return h("circle", { key: "pt-" + i, cx: a.vx, cy: a.vy, r: 2.5, fill: seriesGeo[0].color }); }),
+    labelAxes.map(function (a, i) {
       var anchor = a.lx < center - 4 ? "end" : a.lx > center + 4 ? "start" : "middle";
       return h("text", { key: "label-" + i, x: a.lx, y: a.ly, textAnchor: anchor, dominantBaseline: "middle", fontSize: 10.5, fill: "var(--text-tertiary)" }, a.label);
     })
