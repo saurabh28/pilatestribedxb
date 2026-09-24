@@ -905,6 +905,7 @@ function ProgressTab(props) {
   );
 }
 
+var ROM_SCORE_LABEL = { 2: "Meets norm", 1: "Borderline", 0: "Restricted/Pain" };
 function blankMovementScreenForm() {
   return { movement: {}, deadHangSeconds: "", deadHangPain: false, rom: {}, notes: "" };
 }
@@ -1128,14 +1129,14 @@ function MovementScreenFormPage(props) {
                   onChange: function (e) { setRomScore(t.id, "left", e.target.value); },
                 },
                   h("option", { value: "" }, "—"),
-                  [0, 1, 2].map(function (n) { return h("option", { key: n, value: n }, n); })
+                  [2, 1, 0].map(function (n) { return h("option", { key: n, value: n }, n + " (" + ROM_SCORE_LABEL[n] + ")"); })
                 ),
                 h(SelectField, {
                   label: "Right", optional: true, value: side.right == null ? "" : side.right,
                   onChange: function (e) { setRomScore(t.id, "right", e.target.value); },
                 },
                   h("option", { value: "" }, "—"),
-                  [0, 1, 2].map(function (n) { return h("option", { key: n, value: n }, n); })
+                  [2, 1, 0].map(function (n) { return h("option", { key: n, value: n }, n + " (" + ROM_SCORE_LABEL[n] + ")"); })
                 )
               )
             );

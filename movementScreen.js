@@ -30,18 +30,6 @@ var MOVEMENT_TESTS = [
       { name: "Scapular pull-ups", sets: "3x8", cue: "Pull the shoulder blades down and together without bending the elbows." },
       { name: "Farmer's carry", sets: "3x30m", cue: "Brace the core, keep shoulders packed, avoid leaning to one side." },
     ] },
-  { id: "thomasTest", label: "Thomas Test (Hip Flexor Length)", maxScore: 3,
-    corrective: [
-      { name: "Half-kneeling hip flexor stretch", sets: "2x30s/side", cue: "Tuck the pelvis under, squeeze the glute on the down knee." },
-      { name: "Couch stretch", sets: "2x30s/side", cue: "Keep hips square, ease in only as far as comfortable." },
-      { name: "Glute bridge march", sets: "3x8/side", cue: "Keep hips level as you lift each foot." },
-    ] },
-  { id: "pslr", label: "PSLR (Passive Straight Leg Raise)", maxScore: 3,
-    corrective: [
-      { name: "Supine hamstring stretch with strap", sets: "2x30s/side", cue: "Keep the raised leg straight, gently pull without bouncing." },
-      { name: "Assisted Nordic curl eccentrics", sets: "2x6", cue: "Lower as slowly as control allows." },
-      { name: "Standing hamstring floss", sets: "2x10/side", cue: "Hinge hips back, keep the spine neutral." },
-    ] },
 ];
 
 var ROM_TESTS = [
@@ -74,6 +62,18 @@ var ROM_TESTS = [
       { name: "Band external rotation", sets: "3x12/side", cue: "Keep the elbow pinned to your side, rotate from the shoulder." },
       { name: "Doorway pec stretch", sets: "2x30s", cue: "Step through gently until you feel a stretch across the chest." },
       { name: "Prone Y-raises", sets: "3x10", cue: "Lead with the thumbs up, squeeze the shoulder blades together." },
+    ] },
+  { id: "thomasTest", label: "Thomas Test (Hip Flexor Tightness)", maxScore: 2, normative: "0° (thigh level with table)",
+    corrective: [
+      { name: "Half-kneeling hip flexor stretch", sets: "2x30s/side", cue: "Tuck the pelvis under, squeeze the glute on the down knee." },
+      { name: "Couch stretch", sets: "2x30s/side", cue: "Keep hips square, ease in only as far as comfortable." },
+      { name: "Glute bridge march", sets: "3x8/side", cue: "Keep hips level as you lift each foot." },
+    ] },
+  { id: "pslr", label: "PSLR (Hamstring Flexibility)", maxScore: 2, normative: "≥ 80°",
+    corrective: [
+      { name: "Supine hamstring stretch with strap", sets: "2x30s/side", cue: "Keep the raised leg straight, gently pull without bouncing." },
+      { name: "Assisted Nordic curl eccentrics", sets: "2x6", cue: "Lower as slowly as control allows." },
+      { name: "Standing hamstring floss", sets: "2x10/side", cue: "Hinge hips back, keep the spine neutral." },
     ] },
 ];
 

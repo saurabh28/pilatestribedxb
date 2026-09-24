@@ -5,9 +5,14 @@ const { loadScript } = require("./helpers/load-browser-script");
 const sandbox = { console: console };
 loadScript(path.join(__dirname, "..", "movementScreen.js"), sandbox);
 
-// Config shape
-assert.ok(Array.isArray(sandbox.MOVEMENT_TESTS) && sandbox.MOVEMENT_TESTS.length === 6, "6 movement tests");
-assert.ok(Array.isArray(sandbox.ROM_TESTS) && sandbox.ROM_TESTS.length === 5, "5 ROM tests");
+// Config shape. Thomas Test and PSLR live under ROM_TESTS (degree/normative-
+// based flexibility measurements), not MOVEMENT_TESTS (subjective 0-3
+// movement-compensation scoring) -- they measure tightness against a norm,
+// same shape as the other ROM tests, not movement quality.
+assert.ok(Array.isArray(sandbox.MOVEMENT_TESTS) && sandbox.MOVEMENT_TESTS.length === 4, "4 movement tests");
+assert.ok(Array.isArray(sandbox.ROM_TESTS) && sandbox.ROM_TESTS.length === 7, "7 ROM tests");
+assert.ok(sandbox.ROM_TESTS.some(function (t) { return t.id === "thomasTest"; }), "thomasTest is a ROM test");
+assert.ok(sandbox.ROM_TESTS.some(function (t) { return t.id === "pslr"; }), "pslr is a ROM test");
 sandbox.MOVEMENT_TESTS.concat(sandbox.ROM_TESTS).forEach(function (t) {
   assert.ok(t.id && t.label && t.maxScore, "test " + JSON.stringify(t) + " has id/label/maxScore");
   assert.ok(Array.isArray(t.corrective) && t.corrective.length >= 2 && t.corrective.length <= 3, t.id + " has 2-3 corrective exercises");
@@ -27,26 +32,26 @@ assert.strictEqual(sandbox.deadHangScoreFromSeconds(65, true), 0, "pain always s
 assert.strictEqual(sandbox.deadHangScoreFromSeconds(null, false), null, "no time recorded yet");
 
 // computeReadinessScore: all-max = 100, all-zero = 0, known partial case
-var allMaxMovement = { overheadSquat: 3, walkingLunges: 3, stepDown: 3, deadHang: 3, thomasTest: 3, pslr: 3 };
+var allMaxMovement = { overheadSquat: 3, walkingLunges: 3, stepDown: 3, deadHang: 3 };
 var allMaxRom = {
   ankleDorsiflexion: { left: 2, right: 2 }, hipInternalRotation: { left: 2, right: 2 },
   hipExternalRotation: { left: 2, right: 2 }, shoulderInternalRotation: { left: 2, right: 2 },
-  shoulderExternalRotation: { left: 2, right: 2 },
+  shoulderExternalRotation: { left: 2, right: 2 }, thomasTest: { left: 2, right: 2 }, pslr: { left: 2, right: 2 },
 };
 assert.strictEqual(sandbox.computeReadinessScore(allMaxMovement, allMaxRom), 100);
 
-var allZeroMovement = { overheadSquat: 0, walkingLunges: 0, stepDown: 0, deadHang: 0, thomasTest: 0, pslr: 0 };
+var allZeroMovement = { overheadSquat: 0, walkingLunges: 0, stepDown: 0, deadHang: 0 };
 var allZeroRom = {
   ankleDorsiflexion: { left: 0, right: 0 }, hipInternalRotation: { left: 0, right: 0 },
   hipExternalRotation: { left: 0, right: 0 }, shoulderInternalRotation: { left: 0, right: 0 },
-  shoulderExternalRotation: { left: 0, right: 0 },
+  shoulderExternalRotation: { left: 0, right: 0 }, thomasTest: { left: 0, right: 0 }, pslr: { left: 0, right: 0 },
 };
 assert.strictEqual(sandbox.computeReadinessScore(allZeroMovement, allZeroRom), 0);
 
-// Movement max total = 6*3=18, ROM max total = 5*2*2=20, combined max = 38.
-// One test at 0 (overheadSquat), rest max: (18-3+20)/38 = 35/38 = 92.1% -> rounds to 92.
+// Movement max total = 4*3=12, ROM max total = 7*2*2=28, combined max = 40.
+// One test at 0 (overheadSquat), rest max: (12-3+28)/40 = 37/40 = 92.5% -> rounds to 93.
 var partialMovement = Object.assign({}, allMaxMovement, { overheadSquat: 0 });
-assert.strictEqual(sandbox.computeReadinessScore(partialMovement, allMaxRom), 92);
+assert.strictEqual(sandbox.computeReadinessScore(partialMovement, allMaxRom), 93);
 
 // computeOverallResult
 assert.strictEqual(sandbox.computeOverallResult(allMaxMovement, allMaxRom), "green");
