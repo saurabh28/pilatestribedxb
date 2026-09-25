@@ -198,9 +198,13 @@ function ExerciseEditor(props) {
 }
 function ExerciseRow(props) {
   var ex = props.exercise;
-  var isPilates = ex.category === "Pilates";
+  var config = CATEGORY_FIELD_CONFIG[ex.category] || CATEGORY_FIELD_CONFIG.Other;
   var idp = "ex-" + ex.id;
   var setDetails = normalizedSetDetails(ex);
+  var springs = normalizedSprings(ex);
+  var selectedProps = normalizedProps(ex);
+  var _cp = useState(""), customPropInput = _cp[0], setCustomPropInput = _cp[1];
+
   function num(field) { return function (e) { var v = e.target.value; var patch = {}; patch[field] = v === "" ? null : Number(v); props.onChange(patch); }; }
   function txt(field) { return function (e) { var patch = {}; patch[field] = e.target.value; props.onChange(patch); }; }
 
@@ -218,6 +222,31 @@ function ExerciseRow(props) {
     var next = setDetails.filter(function (s) { return s.id !== setId; });
     props.onChange({ setDetails: next.length ? next : [blankSetDetail()] });
   }
+
+  function updateSpring(springId, patch) {
+    props.onChange({ springs: springs.map(function (s) { return s.id === springId ? Object.assign({}, s, patch) : s; }) });
+  }
+  function addSpring() { props.onChange({ springs: springs.concat([blankSpring()]) }); }
+  function removeSpring(springId) { props.onChange({ springs: springs.filter(function (s) { return s.id !== springId; }) }); }
+
+  function togglePropOption(name) {
+    var exists = selectedProps.some(function (p) { return p.name === name; });
+    if (exists) props.onChange({ selectedProps: selectedProps.filter(function (p) { return p.name !== name; }) });
+    else props.onChange({ selectedProps: selectedProps.concat([blankSelectedProp(name)]) });
+  }
+  function updatePropValue(propId, value) {
+    props.onChange({ selectedProps: selectedProps.map(function (p) { return p.id === propId ? Object.assign({}, p, { value: value }) : p; }) });
+  }
+  function addCustomProp() {
+    var v = customPropInput.trim();
+    if (!v || selectedProps.some(function (p) { return p.name === v; })) return;
+    props.onChange({ selectedProps: selectedProps.concat([blankSelectedProp(v)]) });
+    setCustomPropInput("");
+  }
+
+  var propOptions = DEFAULT_PROPS.concat(
+    selectedProps.map(function (p) { return p.name; }).filter(function (n) { return DEFAULT_PROPS.indexOf(n) === -1; })
+  );
 
   return h("div", { className: "exercise-card" },
     h("div", { className: "exercise-card-head" },
@@ -240,15 +269,20 @@ function ExerciseRow(props) {
           SIDES.map(function (s) { return h("option", { key: s, value: s }, s); }))
       ),
       h("div", { className: "form-field" },
-        h("label", { className: "form-label", htmlFor: idp + "-spring" }, "Spring setting"),
-        h("input", { id: idp + "-spring", className: "input", value: ex.springSetting || "", onChange: txt("springSetting"), placeholder: "e.g. medium" })
-      ),
-      h("div", { className: "form-field" },
         h("label", { className: "form-label", htmlFor: idp + "-dur" }, "Duration (sec)"),
         h("input", { id: idp + "-dur", className: "input", type: "number", min: 0, inputMode: "numeric", value: ex.duration == null ? "" : ex.duration, onChange: num("duration") })
+      ),
+      config.usesDistance && h("div", { className: "form-field" },
+        h("label", { className: "form-label", htmlFor: idp + "-dist" }, "Distance"),
+        h("input", { id: idp + "-dist", className: "input", value: ex.distance || "", onChange: txt("distance"), placeholder: "e.g. 5km" })
+      ),
+      config.usesIntensity && h("div", { className: "form-field" },
+        h("label", { className: "form-label", htmlFor: idp + "-int" }, "Intensity"),
+        h("input", { id: idp + "-int", className: "input", value: ex.intensity || "", onChange: txt("intensity"), placeholder: "e.g. RPE 7, Zone 2" })
       )
     ),
-    h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+
+    config.usesSets && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
       h("div", { className: "flex-between", style: { marginBottom: 8 } },
         h("span", { className: "exercise-card-title" }, "Sets"),
         h("span", { className: "text-tertiary", style: { fontSize: 11 } }, setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"))
@@ -257,15 +291,19 @@ function ExerciseRow(props) {
         var sidp = idp + "-set-" + s.id;
         return h("div", { key: s.id, className: "set-row" },
           h("span", { className: "set-row-index", "aria-hidden": true }, i + 1),
-          h("div", { className: "form-field" },
+          config.setFields.indexOf("reps") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label", htmlFor: sidp + "-reps" }, "Reps"),
             h("input", { id: sidp + "-reps", className: "input", type: "number", min: 0, inputMode: "numeric", value: s.reps == null ? "" : s.reps, onChange: setNum(s.id, "reps") })
           ),
-          h("div", { className: "form-field" },
+          config.setFields.indexOf("weight") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label", htmlFor: sidp + "-weight" }, "Weight / resistance"),
             h("input", { id: sidp + "-weight", className: "input", value: s.weight || "", onChange: setTxt(s.id, "weight"), placeholder: "e.g. 20kg, red band" })
           ),
-          h("div", { className: "form-field" },
+          config.setFields.indexOf("holdSeconds") !== -1 && h("div", { className: "form-field" },
+            h("label", { className: "form-label", htmlFor: sidp + "-hold" }, "Hold (sec)"),
+            h("input", { id: sidp + "-hold", className: "input", type: "number", min: 0, inputMode: "numeric", value: s.holdSeconds == null ? "" : s.holdSeconds, onChange: setNum(s.id, "holdSeconds") })
+          ),
+          config.setFields.indexOf("restSeconds") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label", htmlFor: sidp + "-rest" }, "Rest (sec)"),
             h("input", { id: sidp + "-rest", className: "input", type: "number", min: 0, inputMode: "numeric", value: s.restSeconds == null ? "" : s.restSeconds, onChange: setNum(s.id, "restSeconds") })
           ),
@@ -274,31 +312,74 @@ function ExerciseRow(props) {
       }),
       h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSet }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add set")
     ),
-    isPilates && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+
+    config.usesSprings && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+      h("div", { className: "flex-between", style: { marginBottom: 8 } }, h("span", { className: "exercise-card-title" }, "Springs")),
+      springs.map(function (sp, i) {
+        var spidp = idp + "-spring-" + sp.id;
+        return h("div", { key: sp.id, className: "set-row" },
+          h("span", { className: "set-row-index", "aria-hidden": true }, i + 1),
+          h("div", { className: "form-field" },
+            h("label", { className: "form-label", htmlFor: spidp + "-color" }, "Color"),
+            h("input", { id: spidp + "-color", className: "input", value: sp.color || "", onChange: function (e) { updateSpring(sp.id, { color: e.target.value }); }, placeholder: "e.g. Red" })
+          ),
+          h("div", { className: "form-field" },
+            h("label", { className: "form-label", htmlFor: spidp + "-count" }, "Count"),
+            h("input", { id: spidp + "-count", className: "input", type: "number", min: 0, inputMode: "numeric", value: sp.count == null ? "" : sp.count, onChange: function (e) { var v = e.target.value; updateSpring(sp.id, { count: v === "" ? null : Number(v) }); } })
+          ),
+          h("div", { className: "form-field" },
+            h("label", { className: "form-label", htmlFor: spidp + "-level" }, "Level"),
+            h("input", { id: spidp + "-level", className: "input", value: sp.level || "", onChange: function (e) { updateSpring(sp.id, { level: e.target.value }); }, placeholder: "e.g. 1" })
+          ),
+          h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove spring " + (i + 1), onClick: function () { removeSpring(sp.id); } }, h(XIcon, { width: 14, height: 14 }))
+        );
+      }),
+      h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSpring }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add spring")
+    ),
+
+    config.usesProps && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+      h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Props"),
+      h("div", { className: "chip-group", style: { marginBottom: 10 } },
+        propOptions.map(function (name) {
+          var selected = selectedProps.some(function (p) { return p.name === name; });
+          return h("button", {
+            type: "button", key: name, className: classNames("chip", selected && "selected"),
+            "aria-pressed": selected, onClick: function () { togglePropOption(name); },
+          }, name);
+        })
+      ),
+      selectedProps.length > 0 && h("div", { className: "stack", style: { gap: 8, marginBottom: 10 } },
+        selectedProps.map(function (p) {
+          return h("div", { key: p.id, className: "form-field", style: { marginBottom: 0 } },
+            h("label", { className: "form-label" }, p.name + " — value (optional)"),
+            h("input", { className: "input", value: p.value || "", onChange: function (e) { updatePropValue(p.id, e.target.value); }, placeholder: "e.g. 2kg" })
+          );
+        })
+      ),
+      h("div", { className: "flex-row gap-8" },
+        h("input", {
+          className: "input", placeholder: "Add a custom prop", value: customPropInput,
+          onChange: function (e) { setCustomPropInput(e.target.value); },
+          onKeyDown: function (e) { if (e.key === "Enter") { e.preventDefault(); addCustomProp(); } },
+        }),
+        h(Button, { type: "button", variant: "secondary", onClick: addCustomProp }, "Add")
+      )
+    ),
+
+    (config.usesAssistance || config.usesBox) && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
       h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Pilates detail"),
       h("div", { className: "exercise-fields-grid" },
-        h("div", { className: "form-field" },
-          h("label", { className: "form-label", htmlFor: idp + "-rspr" }, "Reformer springs"),
-          h("input", { id: idp + "-rspr", className: "input", value: ex.reformerSprings || "", onChange: txt("reformerSprings"), placeholder: "e.g. 2 red" })
-        ),
-        h("div", { className: "form-field" },
-          h("label", { className: "form-label", htmlFor: idp + "-reps2" }, "Repetitions"),
-          h("input", { id: idp + "-reps2", className: "input", type: "number", min: 0, inputMode: "numeric", value: ex.repetitions == null ? "" : ex.repetitions, onChange: num("repetitions") })
-        ),
-        h("div", { className: "form-field" },
-          h("label", { className: "form-label", htmlFor: idp + "-props" }, "Props"),
-          h("input", { id: idp + "-props", className: "input", value: ex.props || "", onChange: txt("props"), placeholder: "e.g. magic circle" })
-        ),
-        h("div", { className: "form-field" },
+        config.usesAssistance && h("div", { className: "form-field" },
           h("label", { className: "form-label", htmlFor: idp + "-assist" }, "Assistance level"),
           h("input", { id: idp + "-assist", className: "input", value: ex.assistanceLevel || "", onChange: txt("assistanceLevel"), placeholder: "e.g. independent" })
         ),
-        h("label", { className: "checkbox-row" },
+        config.usesBox && h("label", { className: "checkbox-row" },
           h("input", { type: "checkbox", checked: !!ex.box, onChange: function (e) { props.onChange({ box: e.target.checked }); } }),
           "Box used"
         )
       )
     ),
+
     h("div", { className: "form-field", style: { marginBottom: 0 } },
       h("label", { className: "form-label", htmlFor: idp + "-notes" }, "Notes"),
       h("textarea", { id: idp + "-notes", className: "textarea", style: { minHeight: 56 }, value: ex.notes || "", onChange: txt("notes") })
