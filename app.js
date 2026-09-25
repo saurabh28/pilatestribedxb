@@ -455,6 +455,7 @@ function ClientFormPage(props) {
   var _s = useState(blankClient()), form = _s[0], setForm = _s[1];
   var _e = useState({}), errors = _e[0], setErrors = _e[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
   var _cd = useState(false), confirmDeleteOpen = _cd[0], setConfirmDeleteOpen = _cd[1];
   var _hy = useState(mode === "create"), hydrated = _hy[0], setHydrated = _hy[1];
 
@@ -487,9 +488,12 @@ function ClientFormPage(props) {
     e.preventDefault();
     if (!validate()) return;
     setSaving(true);
+    setSubmitError("");
     var p = mode === "create" ? clientRepository.create(form) : clientRepository.update(clientId, form);
     p.then(function (result) {
       navigate("/clients/" + (mode === "create" ? result.id : clientId));
+    }).catch(function (err) {
+      setSubmitError(err.message || "Couldn't save this client. Check your connection and try again.");
     }).finally(function () { setSaving(false); });
   }
   function handleDelete() {
@@ -554,6 +558,7 @@ function ClientFormPage(props) {
           h("legend", null, "Notes"),
           h(TextAreaField, { label: "General notes", optional: true, value: form.generalNotes, onChange: function (e) { set("generalNotes", e.target.value); } })
         ),
+        submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" },
           h(Button, { type: "submit", disabled: saving, className: "btn-block" }, saving ? "Saving…" : mode === "create" ? "Add client" : "Save changes")
         ),
@@ -714,8 +719,9 @@ function AssessmentModal(props) {
   var _s = useState({}), scores = _s[0], setScores = _s[1];
   var _n = useState(""), notes = _n[0], setNotes = _n[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
 
-  useEffect(function () { if (open) { setScores({}); setNotes(""); } }, [open]);
+  useEffect(function () { if (open) { setScores({}); setNotes(""); setSubmitError(""); } }, [open]);
   if (!open) return null;
 
   function setScore(area, value) {
@@ -727,7 +733,10 @@ function AssessmentModal(props) {
       .map(function (a) { return { clientId: client.id, area: a, score: Number(scores[a]), source: "assessment", recordedAt: today, notes: notes }; });
     if (inputs.length === 0) { props.onClose(); return; }
     setSaving(true);
-    bodyScoreRepository.createMany(inputs).then(function () { props.onClose(); }).finally(function () { setSaving(false); });
+    setSubmitError("");
+    bodyScoreRepository.createMany(inputs).then(function () { props.onClose(); }).catch(function (err) {
+      setSubmitError(err.message || "Couldn't save this assessment. Check your connection and try again.");
+    }).finally(function () { setSaving(false); });
   }
 
   return h("div", { className: "modal-overlay", onClick: props.onClose },
@@ -743,6 +752,7 @@ function AssessmentModal(props) {
         }),
         h(TextAreaField, { label: "Notes", optional: true, value: notes, onChange: function (e) { setNotes(e.target.value); } })
       ),
+      submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 10 } }, submitError),
       h("div", { className: "modal-actions" },
         h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: props.onClose }, "Cancel"),
         h(Button, { type: "button", className: "btn-block", onClick: handleSave, disabled: saving }, saving ? "Saving…" : "Save assessment")
@@ -755,8 +765,9 @@ function ManageAreasModal(props) {
   var _a = useState(client.trackedBodyAreas || STANDARD_BODY_AREAS), areas = _a[0], setAreas = _a[1];
   var _c = useState(""), customArea = _c[0], setCustomArea = _c[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
 
-  useEffect(function () { if (open) { setAreas(client.trackedBodyAreas || STANDARD_BODY_AREAS); setCustomArea(""); } }, [open, client]);
+  useEffect(function () { if (open) { setAreas(client.trackedBodyAreas || STANDARD_BODY_AREAS); setCustomArea(""); setSubmitError(""); } }, [open, client]);
   if (!open) return null;
 
   var allOptions = STANDARD_BODY_AREAS.concat(areas.filter(function (a) { return STANDARD_BODY_AREAS.indexOf(a) === -1; }));
@@ -769,7 +780,10 @@ function ManageAreasModal(props) {
   }
   function handleSave() {
     setSaving(true);
-    clientRepository.update(client.id, { trackedBodyAreas: areas }).then(function () { props.onClose(); }).finally(function () { setSaving(false); });
+    setSubmitError("");
+    clientRepository.update(client.id, { trackedBodyAreas: areas }).then(function () { props.onClose(); }).catch(function (err) {
+      setSubmitError(err.message || "Couldn't save tracked areas. Check your connection and try again.");
+    }).finally(function () { setSaving(false); });
   }
 
   return h("div", { className: "modal-overlay", onClick: props.onClose },
@@ -784,6 +798,7 @@ function ManageAreasModal(props) {
         }),
         h(Button, { type: "button", variant: "secondary", onClick: addCustom }, "Add")
       ),
+      submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 10 } }, submitError),
       h("div", { className: "modal-actions" },
         h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: props.onClose }, "Cancel"),
         h(Button, { type: "button", className: "btn-block", onClick: handleSave, disabled: saving }, saving ? "Saving…" : "Save")
@@ -1031,6 +1046,7 @@ function MovementScreenFormPage(props) {
   var client = useClient(props.clientId);
   var _f = useState(blankMovementScreenForm()), form = _f[0], setForm = _f[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
 
   function setMovementScore(testId, value) {
     setForm(function (f) { var next = Object.assign({}, f, { movement: Object.assign({}, f.movement) }); next.movement[testId] = value; return next; });
@@ -1049,6 +1065,7 @@ function MovementScreenFormPage(props) {
     e.preventDefault();
     if (!client) return;
     setSaving(true);
+    setSubmitError("");
 
     var movementScores = {};
     MOVEMENT_TESTS.forEach(function (t) {
@@ -1090,6 +1107,8 @@ function MovementScreenFormPage(props) {
       return clientRepository.update(client.id, { injuriesAndPain: combined });
     }).then(function () {
       navigate("/clients/" + client.id + "?tab=screening");
+    }).catch(function (err) {
+      setSubmitError(err.message || "Couldn't save this screening. Check your connection and try again.");
     }).finally(function () { setSaving(false); });
   }
 
@@ -1163,6 +1182,7 @@ function MovementScreenFormPage(props) {
           h("legend", null, "Notes"),
           h(TextAreaField, { label: "Corrective focus / observations", optional: true, value: form.notes, onChange: function (e) { setForm(Object.assign({}, form, { notes: e.target.value })); } })
         ),
+        submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" },
           h(Button, { type: "submit", className: "btn-block", disabled: saving }, saving ? "Saving…" : "Save screening")
         )
@@ -1245,6 +1265,7 @@ function SessionFormPage(props) {
   var programs = useAllPrograms();
   var _f = useState(null), form = _f[0], setForm = _f[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
   var _cd = useState(false), confirmDeleteOpen = _cd[0], setConfirmDeleteOpen = _cd[1];
   var _pp = useState(""), selectedProgramId = _pp[0], setSelectedProgramId = _pp[1];
   var _cpo = useState(false), confirmApplyOpen = _cpo[0], setConfirmApplyOpen = _cpo[1];
@@ -1302,6 +1323,7 @@ function SessionFormPage(props) {
     e.preventDefault();
     if (!form) return;
     setSaving(true);
+    setSubmitError("");
     var p = mode === "create" ? sessionRepository.create(form) : sessionRepository.update(props.sessionId, form);
     p.then(function (result) {
       var sessionId = mode === "create" ? result.id : props.sessionId;
@@ -1310,6 +1332,8 @@ function SessionFormPage(props) {
         .map(function (a) { return { clientId: form.clientId, area: a, score: Number(bodyScoreDraft[a]), source: "session", sessionId: sessionId, recordedAt: form.date, notes: "" }; });
       var scoreSave = scoreInputs.length ? bodyScoreRepository.createMany(scoreInputs) : Promise.resolve();
       return scoreSave.then(function () { navigate("/sessions/" + sessionId); });
+    }).catch(function (err) {
+      setSubmitError(err.message || "Couldn't save this session. Check your connection and try again.");
     }).finally(function () { setSaving(false); });
   }
   function handleDelete() {
@@ -1381,6 +1405,7 @@ function SessionFormPage(props) {
           h(TextAreaField, { label: "Homework", optional: true, value: form.homework, onChange: function (e) { set("homework", e.target.value); } }),
           h(TextAreaField, { label: "Focus for next session", optional: true, value: form.nextSessionFocus, onChange: function (e) { set("nextSessionFocus", e.target.value); } })
         ),
+        submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" }, h(Button, { type: "submit", className: "btn-block", disabled: saving }, saving ? "Saving…" : mode === "create" ? "Save session" : "Save changes")),
         mode === "edit" && h("div", { className: "form-actions" }, h(Button, { type: "button", variant: "danger", className: "btn-block", onClick: function () { setConfirmDeleteOpen(true); } }, "Delete session"))
       )
@@ -1594,6 +1619,7 @@ function ProgramFormPage(props) {
   var _f = useState(blankProgram()), form = _f[0], setForm = _f[1];
   var _hy = useState(mode === "create"), hydrated = _hy[0], setHydrated = _hy[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
   var _cd = useState(false), confirmDeleteOpen = _cd[0], setConfirmDeleteOpen = _cd[1];
 
   useEffect(function () {
@@ -1609,8 +1635,11 @@ function ProgramFormPage(props) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
+    setSubmitError("");
     var p = mode === "create" ? programRepository.create(form) : programRepository.update(programId, form);
-    p.then(function () { navigate("/programs"); }).finally(function () { setSaving(false); });
+    p.then(function () { navigate("/programs"); }).catch(function (err) {
+      setSubmitError(err.message || "Couldn't save this program. Check your connection and try again.");
+    }).finally(function () { setSaving(false); });
   }
   function handleDelete() {
     programRepository.remove(programId).then(function () { navigate("/programs"); });
@@ -1631,6 +1660,7 @@ function ProgramFormPage(props) {
           h("legend", null, "Planned exercises"),
           h(ExerciseEditor, { exercises: form.exercises, onChange: function (v) { set("exercises", v); } })
         ),
+        submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" },
           h(Button, { type: "submit", className: "btn-block", disabled: saving || !form.name.trim() }, saving ? "Saving…" : mode === "create" ? "Save program" : "Save changes")
         ),
