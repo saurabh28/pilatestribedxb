@@ -10,6 +10,21 @@
 var TRAINING_TYPES = ["Pilates", "Strength", "Yoga", "Functional", "Mobility", "Combination", "Other"];
 var GENDERS = ["Male", "Female", "Other", "Prefer not to say"];
 var EXERCISE_CATEGORIES = ["Pilates", "Strength", "Cardio", "Mobility", "Yoga", "Functional", "Other"];
+/* Declares which fields each exercise category uses, so ExerciseRow reads
+   this instead of hardcoding one shape for every category. Add a new
+   category or change an existing one's fields by editing this object only. */
+var CATEGORY_FIELD_CONFIG = {
+  "Pilates":    { usesSets: true,  setFields: ["reps", "restSeconds"],           usesSprings: true,  usesProps: true, usesDistance: false, usesIntensity: false, usesAssistance: true,  usesBox: true },
+  "Strength":   { usesSets: true,  setFields: ["reps", "weight", "restSeconds"], usesSprings: false, usesProps: true, usesDistance: false, usesIntensity: false, usesAssistance: false, usesBox: false },
+  "Cardio":     { usesSets: false, setFields: [],                                usesSprings: false, usesProps: false, usesDistance: true, usesIntensity: true,  usesAssistance: false, usesBox: false },
+  "Mobility":   { usesSets: true,  setFields: ["holdSeconds"],                   usesSprings: false, usesProps: true, usesDistance: false, usesIntensity: false, usesAssistance: false, usesBox: false },
+  "Yoga":       { usesSets: true,  setFields: ["holdSeconds"],                   usesSprings: false, usesProps: true, usesDistance: false, usesIntensity: false, usesAssistance: false, usesBox: false },
+  "Functional": { usesSets: true,  setFields: ["reps", "weight", "restSeconds"], usesSprings: false, usesProps: true, usesDistance: false, usesIntensity: false, usesAssistance: false, usesBox: false },
+  "Other":      { usesSets: true,  setFields: ["reps", "weight", "restSeconds"], usesSprings: false, usesProps: true, usesDistance: false, usesIntensity: false, usesAssistance: false, usesBox: false },
+};
+/* Default prop options for the Props picker on any category that uses props.
+   Coaches can add a custom one from the UI too -- this is just the seed list. */
+var DEFAULT_PROPS = ["Magic Circle", "Dumbbell", "Resistance Band", "Ankle Weights", "Foam Roller", "Long Box", "Foot Strap", "Small Ball", "Theraband", "Kettlebell", "Medicine Ball"];
 var SIDES = ["Left", "Right", "Both", "N/A"];
 var GOAL_STATUSES = ["Not started", "In progress", "Achieved", "Revised"];
 var GOAL_TIMEFRAMES = ["1 month", "3 months", "6 months", "12 months"];
