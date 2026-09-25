@@ -184,11 +184,29 @@ function normalizedProps(ex) {
   if (ex.props) return [{ id: "legacy-" + ex.id, name: ex.props, value: "" }];
   return [];
 }
+/* Coaches usually log several exercises in a row that are near-identical
+   (e.g. the same movement on the other side, or the next set of a superset)
+   with the same category, springs, props, and set structure -- only a
+   couple of fields differ. "Add exercise" clones the previous exercise
+   instead of starting blank, across every category, so only the marginal
+   difference needs editing. Every nested id (sets, springs, props) gets
+   freshly generated so editing the copy never mutates the original. */
+function cloneExerciseForRepeat(ex) {
+  return Object.assign({}, ex, {
+    id: generateId(),
+    setDetails: (ex.setDetails || []).map(function (s) { return Object.assign({}, s, { id: generateId() }); }),
+    springs: (ex.springs || []).map(function (s) { return Object.assign({}, s, { id: generateId() }); }),
+    selectedProps: (ex.selectedProps || []).map(function (p) { return Object.assign({}, p, { id: generateId() }); }),
+  });
+}
 function ExerciseEditor(props) {
   var exercises = props.exercises;
   function update(id, patch) { props.onChange(exercises.map(function (e) { return e.id === id ? Object.assign({}, e, patch) : e; })); }
   function remove(id) { props.onChange(exercises.filter(function (e) { return e.id !== id; })); }
-  function add() { props.onChange(exercises.concat([blankExercise()])); }
+  function add() {
+    var last = exercises[exercises.length - 1];
+    props.onChange(exercises.concat([last ? cloneExerciseForRepeat(last) : blankExercise()]));
+  }
 
   return h("div", null,
     exercises.length === 0 && h("p", { className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session."),
@@ -226,7 +244,11 @@ function ExerciseRow(props) {
   function updateSpring(springId, patch) {
     props.onChange({ springs: springs.map(function (s) { return s.id === springId ? Object.assign({}, s, patch) : s; }) });
   }
-  function addSpring() { props.onChange({ springs: springs.concat([blankSpring()]) }); }
+  function addSpring() {
+    var last = springs[springs.length - 1];
+    var copy = last ? Object.assign({}, last, { id: generateId() }) : blankSpring();
+    props.onChange({ springs: springs.concat([copy]) });
+  }
   function removeSpring(springId) { props.onChange({ springs: springs.filter(function (s) { return s.id !== springId; }) }); }
 
   function togglePropOption(name) {
@@ -315,13 +337,14 @@ function ExerciseRow(props) {
 
     config.usesSprings && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
       h("div", { className: "flex-between", style: { marginBottom: 8 } }, h("span", { className: "exercise-card-title" }, "Springs")),
+      h("datalist", { id: idp + "-spring-colors" }, SPRING_COLORS.map(function (c) { return h("option", { key: c, value: c }); })),
       springs.map(function (sp, i) {
         var spidp = idp + "-spring-" + sp.id;
         return h("div", { key: sp.id, className: "set-row" },
           h("span", { className: "set-row-index", "aria-hidden": true }, i + 1),
           h("div", { className: "form-field" },
             h("label", { className: "form-label", htmlFor: spidp + "-color" }, "Color"),
-            h("input", { id: spidp + "-color", className: "input", value: sp.color || "", onChange: function (e) { updateSpring(sp.id, { color: e.target.value }); }, placeholder: "e.g. Red" })
+            h("input", { id: spidp + "-color", className: "input", list: idp + "-spring-colors", value: sp.color || "", onChange: function (e) { updateSpring(sp.id, { color: e.target.value }); }, placeholder: "e.g. Red" })
           ),
           h("div", { className: "form-field" },
             h("label", { className: "form-label", htmlFor: spidp + "-count" }, "Count"),

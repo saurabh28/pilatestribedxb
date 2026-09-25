@@ -25,6 +25,10 @@ var CATEGORY_FIELD_CONFIG = {
 /* Default prop options for the Props picker on any category that uses props.
    Coaches can add a custom one from the UI too -- this is just the seed list. */
 var DEFAULT_PROPS = ["Magic Circle", "Dumbbell", "Resistance Band", "Ankle Weights", "Foam Roller", "Long Box", "Foot Strap", "Small Ball", "Theraband", "Kettlebell", "Medicine Ball"];
+/* Common reformer spring colors, offered as autocomplete suggestions on the
+   spring color field -- it stays a free-text input (colors vary by brand),
+   this list just speeds up typing the common ones. */
+var SPRING_COLORS = ["Red", "Yellow", "Green", "Black", "Blue"];
 var SIDES = ["Left", "Right", "Both", "N/A"];
 var GOAL_STATUSES = ["Not started", "In progress", "Achieved", "Revised"];
 var GOAL_TIMEFRAMES = ["1 month", "3 months", "6 months", "12 months"];
