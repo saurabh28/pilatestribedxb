@@ -141,10 +141,20 @@ function PageHeader(props) {
 /* ---------------------------------------------------------------------- */
 
 function blankSetDetail() {
-  return { id: generateId(), reps: null, weight: "", restSeconds: null };
+  return { id: generateId(), reps: null, weight: "", restSeconds: null, holdSeconds: null };
 }
 function blankExercise() {
-  return { id: generateId(), exerciseName: "", category: "Pilates", setDetails: [blankSetDetail()], springSetting: "", duration: null, side: "N/A", notes: "", reformerSprings: "", box: false, props: "", repetitions: null, assistanceLevel: "" };
+  return {
+    id: generateId(), exerciseName: "", category: "Pilates", setDetails: [blankSetDetail()],
+    duration: null, distance: "", intensity: "", side: "N/A", notes: "",
+    springs: [], selectedProps: [], box: false, assistanceLevel: "",
+  };
+}
+function blankSpring() {
+  return { id: generateId(), color: "", count: null, level: "" };
+}
+function blankSelectedProp(name) {
+  return { id: generateId(), name: name, value: "" };
 }
 /* Older saved exercises only had a single aggregate sets/reps/resistance
    trio. Normalize any exercise (old or new) to a non-empty setDetails array
@@ -153,9 +163,26 @@ function blankExercise() {
 function normalizedSetDetails(ex) {
   if (ex.setDetails && ex.setDetails.length) return ex.setDetails;
   if (ex.reps != null || ex.resistance || ex.sets != null) {
-    return [{ id: "legacy-" + ex.id, reps: ex.reps != null ? ex.reps : null, weight: ex.resistance || "", restSeconds: null }];
+    return [{ id: "legacy-" + ex.id, reps: ex.reps != null ? ex.reps : null, weight: ex.resistance || "", restSeconds: null, holdSeconds: null }];
   }
   return [blankSetDetail()];
+}
+/* Older saved exercises stored spring info as a single free-text string in
+   either `springSetting` or `reformerSprings`. Wrap that into the new
+   structured shape so old exercises still display correctly; editing one
+   upgrades it to the new shape on save, same as normalizedSetDetails above. */
+function normalizedSprings(ex) {
+  if (ex.springs && ex.springs.length) return ex.springs;
+  if (ex.reformerSprings || ex.springSetting) {
+    return [{ id: "legacy-" + ex.id, color: ex.reformerSprings || ex.springSetting, count: null, level: "" }];
+  }
+  return [];
+}
+/* Same idea as normalizedSprings, for the old free-text `props` field. */
+function normalizedProps(ex) {
+  if (ex.selectedProps && ex.selectedProps.length) return ex.selectedProps;
+  if (ex.props) return [{ id: "legacy-" + ex.id, name: ex.props, value: "" }];
+  return [];
 }
 function ExerciseEditor(props) {
   var exercises = props.exercises;
