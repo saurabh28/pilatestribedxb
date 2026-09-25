@@ -1835,21 +1835,6 @@ function App() {
 
 function Root() {
   var auth = useAuth();
-  var _seeded = useRef(false);
-
-  useEffect(function () {
-    if (!auth.session) { _seeded.current = false; return; }
-    if (!auth.ready || _seeded.current) return;
-    _seeded.current = true;
-    seedDemoDataIfEmpty().then(function (result) {
-      try {
-        if (result && result.seeded) {
-          localStorage.setItem("cst_sample_ids", JSON.stringify(result.clientIds));
-          localStorage.setItem("cst_sample_program_ids", JSON.stringify(result.programIds));
-        }
-      } catch (e) {}
-    });
-  }, [auth.ready, auth.session]);
 
   if (!auth.ready) {
     return h("div", { className: "app-shell", style: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" } },
