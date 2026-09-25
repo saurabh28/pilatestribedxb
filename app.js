@@ -1531,20 +1531,30 @@ function formatSetLine(s, i) {
   var parts = [];
   if (s.reps != null) parts.push(s.reps + " reps");
   if (s.weight) parts.push(s.weight);
+  if (s.holdSeconds != null) parts.push(s.holdSeconds + "s hold");
   if (s.restSeconds != null) parts.push(s.restSeconds + "s rest");
   return "Set " + (i + 1) + (parts.length ? ": " + parts.join(", ") : " — no detail recorded");
+}
+function formatSpringLine(sp) {
+  var parts = [];
+  if (sp.count != null) parts.push(sp.count + "x");
+  if (sp.color) parts.push(sp.color);
+  if (sp.level) parts.push("level " + sp.level);
+  return parts.join(" ") || "Spring";
 }
 function ExerciseSummary(props) {
   var ex = props.exercise;
   var setDetails = normalizedSetDetails(ex);
-  var hasRealSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null; });
+  var springs = normalizedSprings(ex);
+  var selectedProps = normalizedProps(ex);
+  var hasRealSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
   var meta = [];
-  if (ex.repetitions != null) meta.push(ex.repetitions + " reps");
-  if (ex.springSetting) meta.push("Spring: " + ex.springSetting);
-  if (ex.reformerSprings) meta.push("Reformer springs: " + ex.reformerSprings);
+  if (ex.distance) meta.push(ex.distance);
+  if (ex.intensity) meta.push(ex.intensity);
   if (ex.duration != null) meta.push(ex.duration + "s");
   if (ex.side && ex.side !== "N/A") meta.push(ex.side);
-  if (ex.props) meta.push("Props: " + ex.props);
+  if (springs.length) meta.push("Springs: " + springs.map(formatSpringLine).join(", "));
+  if (selectedProps.length) meta.push("Props: " + selectedProps.map(function (p) { return p.value ? p.name + " (" + p.value + ")" : p.name; }).join(", "));
   if (ex.assistanceLevel) meta.push(ex.assistanceLevel);
   if (ex.box) meta.push("Box");
   return h("div", { style: { padding: "10px 0", borderBottom: "1px solid var(--separator)" } },
