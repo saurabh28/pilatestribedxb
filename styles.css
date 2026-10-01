@@ -229,6 +229,7 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; }
 .chip.sm { padding: 5px 10px; font-size: 11.5px; }
 
 .exercise-card-summary { cursor: pointer; }
+.exercise-card-summary-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 1; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; min-height: 44px; }
 .exercise-card-summary-line { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
 .exercise-card-chevron { transition: transform .15s ease; color: var(--text-tertiary); flex-shrink: 0; }
 .exercise-card-chevron.expanded { transform: rotate(90deg); }

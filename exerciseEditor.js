@@ -271,9 +271,12 @@ function ExerciseRow(props) {
 
   if (collapsed) {
     return h("div", { className: "exercise-card" },
-      h("div", { className: "exercise-card-head exercise-card-summary", onClick: function () { setCollapsed(false); } },
-        h("span", { className: "exercise-card-title", style: { color: "var(--text)", fontSize: 14.5, fontWeight: 700 } }, ex.exerciseName || "Untitled exercise"),
-        h(ChevronRightIcon, { className: "exercise-card-chevron", width: 16, height: 16 })
+      h("div", { className: "exercise-card-head" },
+        h("button", { type: "button", className: "exercise-card-summary-toggle", onClick: function () { setCollapsed(false); } },
+          h("span", { className: "exercise-card-title", style: { color: "var(--text)", fontSize: 14.5, fontWeight: 700 } }, ex.exerciseName || "Untitled exercise"),
+          h(ChevronRightIcon, { className: "exercise-card-chevron", width: 16, height: 16 })
+        ),
+        h("button", { type: "button", className: "exercise-remove-btn", "aria-label": "Remove exercise " + (props.index + 1), onClick: props.onRemove }, h(TrashIcon, { width: 15, height: 15 }))
       ),
       h("div", { className: "exercise-card-summary-line exercise-card-summary", onClick: function () { setCollapsed(false); } }, summaryLineParts().join(" · "))
     );
