@@ -239,15 +239,27 @@ function ExerciseRow(props) {
         h("label", { className: "form-label", htmlFor: idp + "-name" }, "Exercise name"),
         h("input", { id: idp + "-name", className: "input", value: ex.exerciseName, onChange: txt("exerciseName"), placeholder: "e.g. Footwork on reformer" })
       ),
-      h("div", { className: "form-field" },
-        h("label", { className: "form-label", htmlFor: idp + "-cat" }, "Category"),
-        h("select", { id: idp + "-cat", className: "select", value: ex.category, onChange: txt("category") },
-          EXERCISE_CATEGORIES.map(function (c) { return h("option", { key: c, value: c }, c); }))
+      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+        h("label", { className: "form-label" }, "Category"),
+        h("div", { className: "chip-group" },
+          EXERCISE_CATEGORIES.map(function (c) {
+            return h("button", {
+              type: "button", key: c, className: classNames("chip", ex.category === c && "selected"),
+              "aria-pressed": ex.category === c, onClick: function () { props.onChange({ category: c }); },
+            }, c);
+          })
+        )
       ),
-      h("div", { className: "form-field" },
-        h("label", { className: "form-label", htmlFor: idp + "-side" }, "Side"),
-        h("select", { id: idp + "-side", className: "select", value: ex.side || "N/A", onChange: txt("side") },
-          SIDES.map(function (s) { return h("option", { key: s, value: s }, s); }))
+      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+        h("label", { className: "form-label" }, "Side"),
+        h("div", { className: "segmented" },
+          SIDES.map(function (s) {
+            return h("button", {
+              type: "button", key: s, className: classNames(ex.side === s && "active"),
+              onClick: function () { props.onChange({ side: s }); },
+            }, s);
+          })
+        )
       ),
       h("div", { className: "form-field" },
         h("label", { className: "form-label", htmlFor: idp + "-dur" }, "Duration (sec)"),
