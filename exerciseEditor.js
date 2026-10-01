@@ -23,6 +23,48 @@ function blankExercise() {
 function blankStep() {
   return { id: generateId(), label: "", reps: null, holdSeconds: null };
 }
+/* Generic tap-first numeric control: - value + buttons, with the value
+   itself tappable to drop into a focused, select-all number input for an
+   exact/unusual value (e.g. 47s rest), then reverts to stepper display on
+   blur or Enter. One mechanism, reused for every reps/rest/hold/spring-
+   count field instead of building a second "type an exact value" control.
+   `value` may be null (treated as 0 for display and as the base for +/-;
+   typing a value and blurring with the field empty commits null, same as
+   the old free-text inputs' "no value entered" state). */
+function Stepper(props) {
+  var display = props.value == null ? 0 : props.value;
+  var _editing = useState(false), editing = _editing[0], setEditing = _editing[1];
+  var _draft = useState(""), draft = _draft[0], setDraft = _draft[1];
+
+  function clamp(v) { return Math.max(props.min, Math.min(props.max, v)); }
+  function dec() { props.onChange(clamp(display - props.step)); }
+  function inc() { props.onChange(clamp(display + props.step)); }
+  function startEdit() { setDraft(String(display)); setEditing(true); }
+  function commitEdit() {
+    var trimmed = draft.trim();
+    if (trimmed === "") { props.onChange(null); }
+    else { var n = Number(trimmed); props.onChange(isNaN(n) ? null : clamp(n)); }
+    setEditing(false);
+  }
+
+  if (editing) {
+    return h("div", { className: "stepper" },
+      h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " decrease", onClick: dec }, "−"),
+      h("input", {
+        className: "stepper-input", type: "number", inputMode: "numeric", autoFocus: true, value: draft,
+        onChange: function (e) { setDraft(e.target.value); },
+        onBlur: commitEdit,
+        onKeyDown: function (e) { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } },
+      }),
+      h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " increase", onClick: inc }, "+")
+    );
+  }
+  return h("div", { className: "stepper" },
+    h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " decrease", onClick: dec }, "−"),
+    h("button", { type: "button", className: "stepper-value", onClick: startEdit }, String(display)),
+    h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " increase", onClick: inc }, "+")
+  );
+}
 function blankSpring() {
   return { id: generateId(), color: "", count: null, level: "" };
 }
@@ -243,20 +285,20 @@ function ExerciseRow(props) {
         return h("div", { key: s.id, className: "set-row" },
           h("span", { className: "set-row-index", "aria-hidden": true }, i + 1),
           config.setFields.indexOf("reps") !== -1 && h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: sidp + "-reps" }, "Reps"),
-            h("input", { id: sidp + "-reps", className: "input", type: "number", min: 0, inputMode: "numeric", value: s.reps == null ? "" : s.reps, onChange: setNum(s.id, "reps") })
+            h("label", { className: "form-label" }, "Reps"),
+            h(Stepper, { value: s.reps, min: 0, max: 50, step: 1, ariaLabel: "Reps", onChange: function (v) { updateSet(s.id, { reps: v }); } })
           ),
           config.setFields.indexOf("weight") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label", htmlFor: sidp + "-weight" }, "Weight / resistance"),
             h("input", { id: sidp + "-weight", className: "input", value: s.weight || "", onChange: setTxt(s.id, "weight"), placeholder: "e.g. 20kg, red band" })
           ),
           config.setFields.indexOf("holdSeconds") !== -1 && h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: sidp + "-hold" }, "Hold (sec)"),
-            h("input", { id: sidp + "-hold", className: "input", type: "number", min: 0, inputMode: "numeric", value: s.holdSeconds == null ? "" : s.holdSeconds, onChange: setNum(s.id, "holdSeconds") })
+            h("label", { className: "form-label" }, "Hold (sec)"),
+            h(Stepper, { value: s.holdSeconds, min: 0, max: 300, step: 5, ariaLabel: "Hold seconds", onChange: function (v) { updateSet(s.id, { holdSeconds: v }); } })
           ),
           config.setFields.indexOf("restSeconds") !== -1 && h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: sidp + "-rest" }, "Rest (sec)"),
-            h("input", { id: sidp + "-rest", className: "input", type: "number", min: 0, inputMode: "numeric", value: s.restSeconds == null ? "" : s.restSeconds, onChange: setNum(s.id, "restSeconds") })
+            h("label", { className: "form-label" }, "Rest (sec)"),
+            h(Stepper, { value: s.restSeconds, min: 0, max: 300, step: 5, ariaLabel: "Rest seconds", onChange: function (v) { updateSet(s.id, { restSeconds: v }); } })
           ),
           h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove set " + (i + 1), onClick: function () { removeSet(s.id); } }, h(XIcon, { width: 14, height: 14 }))
         );
