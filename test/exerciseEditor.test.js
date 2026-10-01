@@ -101,6 +101,15 @@ assert.deepEqual(sandbox.topExerciseNames(sessions, "Cardio", 8), ["Running"]);
 assert.deepEqual(sandbox.topExerciseNames([], "Pilates", 8), []);
 assert.deepEqual(sandbox.topExerciseNames(undefined, "Pilates", 8), []);
 
+// exerciseHasData: true only once something real has been entered.
+assert.strictEqual(sandbox.exerciseHasData(sandbox.blankExercise()), false);
+var named = sandbox.blankExercise(); named.exerciseName = "Footwork";
+assert.strictEqual(sandbox.exerciseHasData(named), true);
+var sprung = sandbox.blankExercise(); sprung.springs = [{ id: "a", color: "Red", count: 1, level: "1" }];
+assert.strictEqual(sandbox.exerciseHasData(sprung), true);
+var stepped = sandbox.blankExercise(); stepped.steps = [{ id: "a", label: "Bridge", reps: null, holdSeconds: 10 }];
+assert.strictEqual(sandbox.exerciseHasData(stepped), true);
+
 // formatStepLine reads a step's quantity correctly for either mode.
 assert.strictEqual(sandbox.formatStepLine({ label: "Bridge & hold", reps: null, holdSeconds: 10 }), "Bridge & hold (10s hold)");
 assert.strictEqual(sandbox.formatStepLine({ label: "Leg raises", reps: 10, holdSeconds: null }), "Leg raises (×10)");

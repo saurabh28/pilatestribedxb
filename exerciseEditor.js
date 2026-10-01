@@ -127,6 +127,19 @@ function topExerciseNames(allSessions, category, limit) {
     })
     .slice(0, limit);
 }
+/* Does this exercise already have anything worth summarizing? Used to pick
+   whether a card starts collapsed (a clone, or any exercise being reviewed
+   in an existing session -- most fields are already right, so default to a
+   glance-line) or expanded (a brand-new blank exercise -- nothing to
+   summarize yet, needs filling in immediately). */
+function exerciseHasData(ex) {
+  var setDetails = normalizedSetDetails(ex);
+  var hasSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
+  return !!(
+    ex.exerciseName || hasSetData ||
+    normalizedSprings(ex).length || normalizedProps(ex).length || normalizedSteps(ex).length || ex.notes
+  );
+}
 /* Single-limb exercises (side = Left/Right) are usually logged twice, once
    per side, with the same category/sets/springs/props and only a marginal
    difference (e.g. a lighter spring on the weaker side). Every nested id
@@ -225,9 +238,21 @@ function ExerciseRow(props) {
     setCustomPropInput("");
   }
 
+  function summaryLineParts() {
+    var parts = [ex.category];
+    if (ex.side && ex.side !== "N/A") parts.push(ex.side);
+    if (steps.length) parts.push(steps.length + "-step sequence");
+    var hasSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
+    if (hasSetData) parts.push(setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"));
+    if (springs.length) parts.push(springs.map(formatSpringLine).join(", "));
+    if (selectedProps.length) parts.push(selectedProps.map(function (p) { return p.name; }).join(", "));
+    return parts;
+  }
+
   var steps = normalizedSteps(ex);
   var _seqIntent = useState(steps.length > 0), sequenceIntent = _seqIntent[0], setSequenceIntent = _seqIntent[1];
   var isSequence = sequenceIntent || steps.length > 0;
+  var _collapsed = useState(exerciseHasData(ex)), collapsed = _collapsed[0], setCollapsed = _collapsed[1];
 
   function updateStep(stepId, patch) {
     props.onChange({ steps: steps.map(function (s) { return s.id === stepId ? Object.assign({}, s, patch) : s; }) });
@@ -243,6 +268,16 @@ function ExerciseRow(props) {
     selectedProps.map(function (p) { return p.name; }).filter(function (n) { return DEFAULT_PROPS.indexOf(n) === -1; })
   );
   var suggestedNames = topExerciseNames(props.allSessions, ex.category, 8);
+
+  if (collapsed) {
+    return h("div", { className: "exercise-card" },
+      h("div", { className: "exercise-card-head exercise-card-summary", onClick: function () { setCollapsed(false); } },
+        h("span", { className: "exercise-card-title", style: { color: "var(--text)", fontSize: 14.5, fontWeight: 700 } }, ex.exerciseName || "Untitled exercise"),
+        h(ChevronRightIcon, { className: "exercise-card-chevron", width: 16, height: 16 })
+      ),
+      h("div", { className: "exercise-card-summary-line exercise-card-summary", onClick: function () { setCollapsed(false); } }, summaryLineParts().join(" · "))
+    );
+  }
 
   return h("div", { className: "exercise-card" },
     h("div", { className: "exercise-card-head" },

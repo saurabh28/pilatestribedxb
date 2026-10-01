@@ -228,6 +228,11 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; }
 .spring-row-head { display: flex; justify-content: space-between; margin-bottom: 8px; }
 .chip.sm { padding: 5px 10px; font-size: 11.5px; }
 
+.exercise-card-summary { cursor: pointer; }
+.exercise-card-summary-line { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+.exercise-card-chevron { transition: transform .15s ease; color: var(--text-tertiary); flex-shrink: 0; }
+.exercise-card-chevron.expanded { transform: rotate(90deg); }
+
 .step-item { display: flex; align-items: center; gap: 8px; background: var(--pill-bg); border-radius: 11px; padding: 9px 11px; margin-bottom: 7px; }
 .step-num { width: 22px; height: 22px; border-radius: 999px; background: var(--accent); color: var(--accent-contrast); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .step-name-input { flex: 1; border: none; background: none; font-size: 13.5px; font-weight: 600; color: var(--text); min-width: 0; }
