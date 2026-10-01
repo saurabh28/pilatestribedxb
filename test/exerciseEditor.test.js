@@ -101,4 +101,9 @@ assert.deepEqual(sandbox.topExerciseNames(sessions, "Cardio", 8), ["Running"]);
 assert.deepEqual(sandbox.topExerciseNames([], "Pilates", 8), []);
 assert.deepEqual(sandbox.topExerciseNames(undefined, "Pilates", 8), []);
 
+// formatStepLine reads a step's quantity correctly for either mode.
+assert.strictEqual(sandbox.formatStepLine({ label: "Bridge & hold", reps: null, holdSeconds: 10 }), "Bridge & hold (10s hold)");
+assert.strictEqual(sandbox.formatStepLine({ label: "Leg raises", reps: 10, holdSeconds: null }), "Leg raises (×10)");
+assert.strictEqual(sandbox.formatStepLine({ label: "Rest", reps: null, holdSeconds: null }), "Rest");
+
 console.log("exerciseEditor.test.js: all assertions passed");

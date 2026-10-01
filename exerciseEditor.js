@@ -225,6 +225,20 @@ function ExerciseRow(props) {
     setCustomPropInput("");
   }
 
+  var steps = normalizedSteps(ex);
+  var _seqIntent = useState(steps.length > 0), sequenceIntent = _seqIntent[0], setSequenceIntent = _seqIntent[1];
+  var isSequence = sequenceIntent || steps.length > 0;
+
+  function updateStep(stepId, patch) {
+    props.onChange({ steps: steps.map(function (s) { return s.id === stepId ? Object.assign({}, s, patch) : s; }) });
+  }
+  function addStep() {
+    props.onChange({ steps: steps.concat([blankStep()]) });
+  }
+  function removeStep(stepId) {
+    props.onChange({ steps: steps.filter(function (s) { return s.id !== stepId; }) });
+  }
+
   var propOptions = DEFAULT_PROPS.concat(
     selectedProps.map(function (p) { return p.name; }).filter(function (n) { return DEFAULT_PROPS.indexOf(n) === -1; })
   );
@@ -238,6 +252,37 @@ function ExerciseRow(props) {
       h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label", htmlFor: idp + "-name" }, "Exercise name"),
         h("input", { id: idp + "-name", className: "input", value: ex.exerciseName, onChange: txt("exerciseName"), placeholder: "e.g. Footwork on reformer" })
+      ),
+      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+        h("label", { className: "form-label" }, "This exercise is"),
+        h("div", { className: "chip-group", style: { marginBottom: isSequence ? 10 : 0 } },
+          h("button", { type: "button", className: classNames("chip", !isSequence && "selected"), onClick: function () { setSequenceIntent(false); } }, "One movement"),
+          h("button", { type: "button", className: classNames("chip", isSequence && "selected"), onClick: function () { setSequenceIntent(true); } }, "A sequence of steps")
+        ),
+        isSequence && h("div", null,
+          steps.map(function (s, i) {
+            return h("div", { key: s.id, className: "step-item" },
+              h("span", { className: "step-num", "aria-hidden": true }, i + 1),
+              h("input", { className: "step-name-input", value: s.label, onChange: function (e) { updateStep(s.id, { label: e.target.value }); }, placeholder: "e.g. Leg raises" }),
+              h("div", { className: "flex-row gap-8" },
+                h("button", {
+                  type: "button", className: classNames("chip", "sm", s.holdSeconds == null && "selected"),
+                  onClick: function () { updateStep(s.id, { holdSeconds: null }); },
+                }, "Reps"),
+                h("button", {
+                  type: "button", className: classNames("chip", "sm", s.holdSeconds != null && "selected"),
+                  onClick: function () { updateStep(s.id, { holdSeconds: s.holdSeconds == null ? 0 : s.holdSeconds, reps: null }); },
+                }, "Hold"),
+                h(Stepper, {
+                  value: s.holdSeconds != null ? s.holdSeconds : s.reps, min: 0, max: s.holdSeconds != null ? 300 : 50, step: s.holdSeconds != null ? 5 : 1, ariaLabel: "Step quantity",
+                  onChange: function (v) { updateStep(s.id, s.holdSeconds != null ? { holdSeconds: v } : { reps: v }); },
+                })
+              ),
+              h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove step " + (i + 1), onClick: function () { removeStep(s.id); } }, h(XIcon, { width: 14, height: 14 }))
+            );
+          }),
+          h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addStep }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add step")
+        )
       ),
       h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label" }, "Category"),
@@ -292,6 +337,7 @@ function ExerciseRow(props) {
         h("span", { className: "exercise-card-title" }, "Sets"),
         h("span", { className: "text-tertiary", style: { fontSize: 11 } }, setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"))
       ),
+      isSequence && h("p", { className: "form-hint", style: { marginTop: -4, marginBottom: 8 } }, "Sets = how many times you repeat this whole sequence. Springs/props below are shared across all steps."),
       setDetails.map(function (s, i) {
         var sidp = idp + "-set-" + s.id;
         return h("div", { key: s.id, className: "set-row" },
@@ -429,13 +475,19 @@ function formatSpringLine(sp) {
   if (sp.level && sp.level.trim()) parts.push("level " + sp.level.trim());
   return parts.join(" ") || "Spring";
 }
+function formatStepLine(s) {
+  var qty = s.holdSeconds != null ? s.holdSeconds + "s hold" : (s.reps != null ? "×" + s.reps : "");
+  return s.label + (qty ? " (" + qty + ")" : "");
+}
 function ExerciseSummary(props) {
   var ex = props.exercise;
   var setDetails = normalizedSetDetails(ex);
   var springs = normalizedSprings(ex);
   var selectedProps = normalizedProps(ex);
+  var steps = normalizedSteps(ex);
   var hasRealSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
   var meta = [];
+  if (steps.length) meta.push(steps.length + "-step sequence: " + steps.map(formatStepLine).join(" → "));
   if (ex.distance) meta.push(ex.distance);
   if (ex.intensity) meta.push(ex.intensity);
   if (ex.duration != null) meta.push(ex.duration + "s");
