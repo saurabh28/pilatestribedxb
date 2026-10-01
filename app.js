@@ -184,13 +184,13 @@ function normalizedProps(ex) {
   if (ex.props) return [{ id: "legacy-" + ex.id, name: ex.props, value: "" }];
   return [];
 }
-/* Coaches usually log several exercises in a row that are near-identical
-   (e.g. the same movement on the other side, or the next set of a superset)
-   with the same category, springs, props, and set structure -- only a
-   couple of fields differ. "Add exercise" clones the previous exercise
-   instead of starting blank, across every category, so only the marginal
-   difference needs editing. Every nested id (sets, springs, props) gets
-   freshly generated so editing the copy never mutates the original. */
+/* Single-limb exercises (side = Left/Right) are usually logged twice, once
+   per side, with the same category/sets/springs/props and only a marginal
+   difference (e.g. a lighter spring on the weaker side). Every nested id
+   (sets, springs, props) gets freshly generated so editing the copy never
+   mutates the original. Used by the "log other side" checkbox below, not by
+   plain "Add exercise" -- that stays a blank exercise so unrelated exercises
+   don't need to be cleared out of a stale copy. */
 function cloneExerciseForRepeat(ex) {
   return Object.assign({}, ex, {
     id: generateId(),
@@ -199,18 +199,31 @@ function cloneExerciseForRepeat(ex) {
     selectedProps: (ex.selectedProps || []).map(function (p) { return Object.assign({}, p, { id: generateId() }); }),
   });
 }
+function flipSide(side) {
+  if (side === "Left") return "Right";
+  if (side === "Right") return "Left";
+  return side;
+}
 function ExerciseEditor(props) {
   var exercises = props.exercises;
   function update(id, patch) { props.onChange(exercises.map(function (e) { return e.id === id ? Object.assign({}, e, patch) : e; })); }
   function remove(id) { props.onChange(exercises.filter(function (e) { return e.id !== id; })); }
   function add() {
-    var last = exercises[exercises.length - 1];
-    props.onChange(exercises.concat([last ? cloneExerciseForRepeat(last) : blankExercise()]));
+    props.onChange(exercises.concat([blankExercise()]));
+  }
+  function logOtherSide(id) {
+    var idx = exercises.findIndex(function (e) { return e.id === id; });
+    if (idx === -1) return;
+    var clone = cloneExerciseForRepeat(exercises[idx]);
+    clone.side = flipSide(exercises[idx].side);
+    var next = exercises.slice();
+    next.splice(idx + 1, 0, clone);
+    props.onChange(next);
   }
 
   return h("div", null,
     exercises.length === 0 && h("p", { className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session."),
-    exercises.map(function (ex, i) { return h(ExerciseRow, { key: ex.id, index: i, exercise: ex, onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); } }); }),
+    exercises.map(function (ex, i) { return h(ExerciseRow, { key: ex.id, index: i, exercise: ex, onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); } }); }),
     h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: add }, h(PlusCircleIcon, { width: 18, height: 18 }), "Add exercise")
   );
 }
@@ -222,6 +235,8 @@ function ExerciseRow(props) {
   var springs = normalizedSprings(ex);
   var selectedProps = normalizedProps(ex);
   var _cp = useState(""), customPropInput = _cp[0], setCustomPropInput = _cp[1];
+  var _os = useState(false), otherSideAdded = _os[0], setOtherSideAdded = _os[1];
+  var canLogOtherSide = ex.side === "Left" || ex.side === "Right";
 
   function num(field) { return function (e) { var v = e.target.value; var patch = {}; patch[field] = v === "" ? null : Number(v); props.onChange(patch); }; }
   function txt(field) { return function (e) { var patch = {}; patch[field] = e.target.value; props.onChange(patch); }; }
@@ -302,6 +317,18 @@ function ExerciseRow(props) {
         h("label", { className: "form-label", htmlFor: idp + "-int" }, "Intensity"),
         h("input", { id: idp + "-int", className: "input", value: ex.intensity || "", onChange: txt("intensity"), placeholder: "e.g. RPE 7, Zone 2" })
       )
+    ),
+
+    canLogOtherSide && h("label", { className: "checkbox-row", style: { marginBottom: 10 } },
+      h("input", {
+        type: "checkbox", checked: otherSideAdded, disabled: otherSideAdded,
+        onChange: function (e) {
+          if (!e.target.checked || otherSideAdded) return;
+          setOtherSideAdded(true);
+          props.onLogOtherSide();
+        },
+      }),
+      otherSideAdded ? "Other side added below — edit what's different" : "Also log the other side (adds a copy with side flipped)"
     ),
 
     config.usesSets && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
