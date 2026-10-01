@@ -167,7 +167,7 @@ function ExerciseEditor(props) {
 
   return h("div", null,
     exercises.length === 0 && h("p", { className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session."),
-    exercises.map(function (ex, i) { return h(ExerciseRow, { key: ex.id, index: i, exercise: ex, onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); } }); }),
+    exercises.map(function (ex, i) { return h(ExerciseRow, { key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); } }); }),
     h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: add }, h(PlusCircleIcon, { width: 18, height: 18 }), "Add exercise")
   );
 }
@@ -242,6 +242,7 @@ function ExerciseRow(props) {
   var propOptions = DEFAULT_PROPS.concat(
     selectedProps.map(function (p) { return p.name; }).filter(function (n) { return DEFAULT_PROPS.indexOf(n) === -1; })
   );
+  var suggestedNames = topExerciseNames(props.allSessions, ex.category, 8);
 
   return h("div", { className: "exercise-card" },
     h("div", { className: "exercise-card-head" },
@@ -251,6 +252,14 @@ function ExerciseRow(props) {
     h("div", { className: "exercise-fields-grid", style: { marginBottom: 10 } },
       h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label", htmlFor: idp + "-name" }, "Exercise name"),
+        suggestedNames.length > 0 && h("div", { className: "chip-group", style: { marginBottom: 8 } },
+          suggestedNames.map(function (name) {
+            return h("button", {
+              type: "button", key: name, className: "chip",
+              onClick: function () { props.onChange({ exerciseName: name }); },
+            }, name);
+          })
+        ),
         h("input", { id: idp + "-name", className: "input", value: ex.exerciseName, onChange: txt("exerciseName"), placeholder: "e.g. Footwork on reformer" })
       ),
       h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },

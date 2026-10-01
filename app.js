@@ -1120,6 +1120,7 @@ function SessionFormPage(props) {
   var resolvedClientId = mode === "create" ? props.clientId : (existingSession && existingSession.clientId);
   var client = useClient(resolvedClientId);
   var programs = useAllPrograms();
+  var allSessions = useAllSessions();
   var _f = useState(null), form = _f[0], setForm = _f[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
   var _se = useState(""), submitError = _se[0], setSubmitError = _se[1];
@@ -1228,7 +1229,7 @@ function SessionFormPage(props) {
           ),
           h("p", { className: "text-tertiary", style: { fontSize: 12, marginTop: -8 } }, "Loads that program's exercises into this session so you can adjust them to what actually happened.")
         ),
-        h("fieldset", { className: "form-group" }, h("legend", null, "Exercises"), h(ExerciseEditor, { exercises: form.exercises, onChange: function (v) { set("exercises", v); } })),
+        h("fieldset", { className: "form-group" }, h("legend", null, "Exercises"), h(ExerciseEditor, { exercises: form.exercises, allSessions: allSessions, onChange: function (v) { set("exercises", v); } })),
         h("fieldset", { className: "form-group" },
           h("legend", null, "Client response"),
           h("div", { className: "form-grid-2" },
@@ -1483,6 +1484,7 @@ function blankProgram() { return { name: "", description: "", exercises: [] }; }
 function ProgramFormPage(props) {
   var mode = props.mode, programId = props.programId;
   var existing = useProgram(mode === "edit" ? programId : undefined);
+  var allSessions = useAllSessions();
   var _f = useState(blankProgram()), form = _f[0], setForm = _f[1];
   var _hy = useState(mode === "create"), hydrated = _hy[0], setHydrated = _hy[1];
   var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
@@ -1525,7 +1527,7 @@ function ProgramFormPage(props) {
         ),
         h("fieldset", { className: "form-group" },
           h("legend", null, "Planned exercises"),
-          h(ExerciseEditor, { exercises: form.exercises, onChange: function (v) { set("exercises", v); } })
+          h(ExerciseEditor, { exercises: form.exercises, allSessions: allSessions, onChange: function (v) { set("exercises", v); } })
         ),
         submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" },
