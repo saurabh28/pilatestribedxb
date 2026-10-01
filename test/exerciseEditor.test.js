@@ -53,4 +53,27 @@ assert.strictEqual(clone.springs[0].color, "Red");
 // formatSpringLine stays unambiguous per-row.
 assert.strictEqual(sandbox.formatSpringLine({ count: 3, color: "Red", level: "1" }), "3x Red level 1");
 
+// steps defaults to an empty array on a brand-new exercise.
+assert.deepEqual(sandbox.blankExercise().steps, []);
+
+// blankStep() has the expected shape.
+var step = sandbox.blankStep();
+assert.strictEqual(step.label, "");
+assert.strictEqual(step.reps, null);
+assert.strictEqual(step.holdSeconds, null);
+assert.ok(step.id);
+
+// normalizedSteps: missing/empty steps always returns [].
+assert.deepEqual(sandbox.normalizedSteps({}), []);
+assert.deepEqual(sandbox.normalizedSteps({ steps: [] }), []);
+var withSteps = { steps: [{ id: "a", label: "Bridge", reps: null, holdSeconds: 10 }] };
+assert.deepEqual(sandbox.normalizedSteps(withSteps), withSteps.steps);
+
+// cloneExerciseForRepeat regenerates step ids too, same as springs/sets/props.
+var comboSource = sandbox.blankExercise();
+comboSource.steps = [{ id: "step-1", label: "Bridge & hold", reps: null, holdSeconds: 10 }];
+var comboClone = sandbox.cloneExerciseForRepeat(comboSource);
+assert.notStrictEqual(comboClone.steps[0].id, comboSource.steps[0].id);
+assert.strictEqual(comboClone.steps[0].label, "Bridge & hold");
+
 console.log("exerciseEditor.test.js: all assertions passed");

@@ -11,8 +11,17 @@ function blankExercise() {
   return {
     id: generateId(), exerciseName: "", category: "Pilates", setDetails: [blankSetDetail()],
     duration: null, distance: "", intensity: "", side: "N/A", notes: "",
-    springs: [], selectedProps: [], box: false, assistanceLevel: "",
+    springs: [], selectedProps: [], box: false, assistanceLevel: "", steps: [],
   };
+}
+/* A choreographed combo (e.g. "bridge hold -> leg raises -> pulses") broken
+   into ordered phases. Optional and universal across every category -- not
+   gated by CATEGORY_FIELD_CONFIG the way sets/springs/props are, since a
+   Strength complex or a Yoga flow is the same shape of problem as a Pilates
+   combo. Whether a saved exercise is "in sequence mode" is simply
+   `steps.length > 0`; there's no separate persisted flag. */
+function blankStep() {
+  return { id: generateId(), label: "", reps: null, holdSeconds: null };
 }
 function blankSpring() {
   return { id: generateId(), color: "", count: null, level: "" };
@@ -48,6 +57,9 @@ function normalizedProps(ex) {
   if (ex.props) return [{ id: "legacy-" + ex.id, name: ex.props, value: "" }];
   return [];
 }
+function normalizedSteps(ex) {
+  return ex.steps || [];
+}
 /* Single-limb exercises (side = Left/Right) are usually logged twice, once
    per side, with the same category/sets/springs/props and only a marginal
    difference (e.g. a lighter spring on the weaker side). Every nested id
@@ -61,6 +73,7 @@ function cloneExerciseForRepeat(ex) {
     setDetails: (ex.setDetails || []).map(function (s) { return Object.assign({}, s, { id: generateId() }); }),
     springs: (ex.springs || []).map(function (s) { return Object.assign({}, s, { id: generateId() }); }),
     selectedProps: (ex.selectedProps || []).map(function (p) { return Object.assign({}, p, { id: generateId() }); }),
+    steps: (ex.steps || []).map(function (s) { return Object.assign({}, s, { id: generateId() }); }),
   });
 }
 function flipSide(side) {
