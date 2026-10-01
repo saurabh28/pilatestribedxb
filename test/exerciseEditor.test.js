@@ -76,4 +76,26 @@ var comboClone = sandbox.cloneExerciseForRepeat(comboSource);
 assert.notStrictEqual(comboClone.steps[0].id, comboSource.steps[0].id);
 assert.strictEqual(comboClone.steps[0].label, "Bridge & hold");
 
+// topExerciseNames: frequency ranking, scoped to the given category, tie-
+// broken by most-recent session date, capped at `limit`.
+function makeSession(date, exNames, category) {
+  return { date: date, exercises: exNames.map(function (n) { return { exerciseName: n, category: category || "Pilates" }; }) };
+}
+var sessions = [
+  makeSession("2026-09-01", ["Footwork", "Footwork", "Hundred"]),
+  makeSession("2026-09-10", ["Footwork", "Leg Circles"]),
+  makeSession("2026-09-20", ["Short Spine"]),
+  makeSession("2026-09-05", ["Running"], "Cardio"),
+];
+var top = sandbox.topExerciseNames(sessions, "Pilates", 3);
+// Footwork has frequency 2, so it's first regardless of recency. Hundred,
+// Leg Circles, and Short Spine are all frequency 1 -- tied, so most-recent
+// session date breaks the tie: Short Spine (09-20) > Leg Circles (09-10) >
+// Hundred (09-01). The limit of 3 cuts off Hundred.
+assert.deepEqual(top, ["Footwork", "Short Spine", "Leg Circles"]);
+
+assert.deepEqual(sandbox.topExerciseNames(sessions, "Cardio", 8), ["Running"]);
+assert.deepEqual(sandbox.topExerciseNames([], "Pilates", 8), []);
+assert.deepEqual(sandbox.topExerciseNames(undefined, "Pilates", 8), []);
+
 console.log("exerciseEditor.test.js: all assertions passed");

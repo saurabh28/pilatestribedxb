@@ -60,6 +60,31 @@ function normalizedProps(ex) {
 function normalizedSteps(ex) {
   return ex.steps || [];
 }
+/* Up to `limit` of the trainer's most-used exercise names for `category`,
+   across every session ever logged (any client) -- shown as tappable
+   suggestion chips above the exercise-name field so a brand-new exercise
+   entry (not a clone) still rarely needs typing. Ties in frequency are
+   broken by most-recent use. Pure function of already-loaded session data;
+   writes nothing, reads nothing new. */
+function topExerciseNames(allSessions, category, limit) {
+  var lastUsed = {};
+  var counts = {};
+  (allSessions || []).forEach(function (session) {
+    (session.exercises || []).forEach(function (ex) {
+      if (ex.category !== category || !ex.exerciseName) return;
+      counts[ex.exerciseName] = (counts[ex.exerciseName] || 0) + 1;
+      if (!lastUsed[ex.exerciseName] || session.date > lastUsed[ex.exerciseName]) {
+        lastUsed[ex.exerciseName] = session.date;
+      }
+    });
+  });
+  return Object.keys(counts)
+    .sort(function (a, b) {
+      if (counts[b] !== counts[a]) return counts[b] - counts[a];
+      return lastUsed[b] < lastUsed[a] ? -1 : lastUsed[b] > lastUsed[a] ? 1 : 0;
+    })
+    .slice(0, limit);
+}
 /* Single-limb exercises (side = Left/Right) are usually logged twice, once
    per side, with the same category/sets/springs/props and only a marginal
    difference (e.g. a lighter spring on the weaker side). Every nested id
