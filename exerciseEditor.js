@@ -52,6 +52,7 @@ function Stepper(props) {
       h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " decrease", onClick: dec }, "−"),
       h("input", {
         className: "stepper-input", type: "number", inputMode: "numeric", autoFocus: true, value: draft,
+        onFocus: function (e) { e.target.select(); },
         onChange: function (e) { setDraft(e.target.value); },
         onBlur: commitEdit,
         onKeyDown: function (e) { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } },
