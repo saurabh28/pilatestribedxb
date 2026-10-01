@@ -310,9 +310,12 @@ function ExerciseRow(props) {
         isSequence && h("div", null,
           steps.map(function (s, i) {
             return h("div", { key: s.id, className: "step-item" },
-              h("span", { className: "step-num", "aria-hidden": true }, i + 1),
-              h("input", { className: "step-name-input", value: s.label, onChange: function (e) { updateStep(s.id, { label: e.target.value }); }, placeholder: "e.g. Leg raises" }),
-              h("div", { className: "flex-row gap-8" },
+              h("div", { className: "step-item-row" },
+                h("span", { className: "step-num", "aria-hidden": true }, i + 1),
+                h("input", { className: "step-name-input", value: s.label, onChange: function (e) { updateStep(s.id, { label: e.target.value }); }, placeholder: "e.g. Leg raises" }),
+                h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove step " + (i + 1), onClick: function () { removeStep(s.id); } }, h(XIcon, { width: 14, height: 14 }))
+              ),
+              h("div", { className: "step-item-row", style: { marginTop: 8 } },
                 h("button", {
                   type: "button", className: classNames("chip", "sm", s.holdSeconds == null && "selected"),
                   onClick: function () { updateStep(s.id, { holdSeconds: null }); },
@@ -325,8 +328,7 @@ function ExerciseRow(props) {
                   value: s.holdSeconds != null ? s.holdSeconds : s.reps, min: 0, max: s.holdSeconds != null ? 300 : 50, step: s.holdSeconds != null ? 5 : 1, ariaLabel: "Step quantity",
                   onChange: function (v) { updateStep(s.id, s.holdSeconds != null ? { holdSeconds: v } : { reps: v }); },
                 })
-              ),
-              h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove step " + (i + 1), onClick: function () { removeStep(s.id); } }, h(XIcon, { width: 14, height: 14 }))
+              )
             );
           }),
           h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addStep }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add step")
