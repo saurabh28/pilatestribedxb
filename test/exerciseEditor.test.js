@@ -52,6 +52,9 @@ assert.strictEqual(clone.springs[0].color, "Red");
 
 // formatSpringLine stays unambiguous per-row.
 assert.strictEqual(sandbox.formatSpringLine({ count: 3, color: "Red", level: "1" }), "3x Red level 1");
+// ...and ignores a blank/whitespace-only level (the "Other" chip's
+// sentinel value before anything's been typed).
+assert.strictEqual(sandbox.formatSpringLine({ count: 1, color: "Red", level: " " }), "1x Red");
 
 // steps defaults to an empty array on a brand-new exercise.
 assert.deepEqual(sandbox.blankExercise().steps, []);

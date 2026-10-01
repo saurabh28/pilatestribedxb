@@ -320,24 +320,46 @@ function ExerciseRow(props) {
 
     config.usesSprings && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
       h("div", { className: "flex-between", style: { marginBottom: 8 } }, h("span", { className: "exercise-card-title" }, "Springs")),
-      h("datalist", { id: idp + "-spring-colors" }, SPRING_COLORS.map(function (c) { return h("option", { key: c, value: c }); })),
       springs.map(function (sp, i) {
-        var spidp = idp + "-spring-" + sp.id;
-        return h("div", { key: sp.id, className: "set-row" },
-          h("span", { className: "set-row-index", "aria-hidden": true }, i + 1),
-          h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: spidp + "-color" }, "Color"),
-            h("input", { id: spidp + "-color", className: "input", list: idp + "-spring-colors", value: sp.color || "", onChange: function (e) { updateSpring(sp.id, { color: e.target.value }); }, placeholder: "e.g. Red" })
+        return h("div", { key: sp.id, className: "spring-row-card" },
+          h("div", { className: "spring-row-head" },
+            h("span", { className: "text-tertiary", style: { fontSize: 11, fontWeight: 700 } }, "SPRING " + (i + 1)),
+            h("button", { type: "button", className: "exercise-remove-btn", "aria-label": "Remove spring " + (i + 1), onClick: function () { removeSpring(sp.id); } }, "Remove")
           ),
-          h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: spidp + "-count" }, "Count"),
-            h("input", { id: spidp + "-count", className: "input", type: "number", min: 0, inputMode: "numeric", value: sp.count == null ? "" : sp.count, onChange: function (e) { var v = e.target.value; updateSpring(sp.id, { count: v === "" ? null : Number(v) }); } })
+          h("div", { className: "chip-group", style: { marginBottom: 10 } },
+            SPRING_COLORS.map(function (c) {
+              return h("button", {
+                type: "button", key: c, className: classNames("chip", sp.color === c && "selected"),
+                "aria-pressed": sp.color === c, onClick: function () { updateSpring(sp.id, { color: c }); },
+              }, c);
+            })
           ),
-          h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: spidp + "-level" }, "Level"),
-            h("input", { id: spidp + "-level", className: "input", value: sp.level || "", onChange: function (e) { updateSpring(sp.id, { level: e.target.value }); }, placeholder: "e.g. 1" })
-          ),
-          h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove spring " + (i + 1), onClick: function () { removeSpring(sp.id); } }, h(XIcon, { width: 14, height: 14 }))
+          h("div", { className: "flex-row gap-12 wrap", style: { alignItems: "flex-start" } },
+            h("div", { className: "form-field", style: { marginBottom: 0 } },
+              h("label", { className: "form-label" }, "Count"),
+              h(Stepper, { value: sp.count, min: 0, max: 6, step: 1, ariaLabel: "Spring count", onChange: function (v) { updateSpring(sp.id, { count: v }); } })
+            ),
+            h("div", { className: "form-field", style: { marginBottom: 0 } },
+              h("label", { className: "form-label" }, "Level"),
+              h("div", { className: "chip-group" },
+                ["1", "2", "3"].map(function (lvl) {
+                  return h("button", {
+                    type: "button", key: lvl, className: classNames("chip", sp.level === lvl && "selected"),
+                    "aria-pressed": sp.level === lvl, onClick: function () { updateSpring(sp.id, { level: lvl }); },
+                  }, lvl);
+                }).concat([
+                  h("button", {
+                    type: "button", key: "other", className: classNames("chip", ["1", "2", "3", ""].indexOf(sp.level) === -1 && "selected"),
+                    onClick: function () { updateSpring(sp.id, { level: sp.level && ["1", "2", "3"].indexOf(sp.level) === -1 ? sp.level : " " }); },
+                  }, "Other")
+                ])
+              ),
+              ["1", "2", "3", ""].indexOf(sp.level) === -1 && h("input", {
+                className: "input", style: { marginTop: 8, maxWidth: 120 }, value: sp.level === " " ? "" : sp.level,
+                onChange: function (e) { updateSpring(sp.id, { level: e.target.value }); }, placeholder: "e.g. B2", autoFocus: true,
+              })
+            )
+          )
         );
       }),
       h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSpring }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add spring")
@@ -404,7 +426,7 @@ function formatSpringLine(sp) {
   var parts = [];
   if (sp.count != null) parts.push(sp.count + "x");
   if (sp.color) parts.push(sp.color);
-  if (sp.level) parts.push("level " + sp.level);
+  if (sp.level && sp.level.trim()) parts.push("level " + sp.level.trim());
   return parts.join(" ") || "Spring";
 }
 function ExerciseSummary(props) {
