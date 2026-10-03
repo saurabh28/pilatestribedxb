@@ -51,12 +51,19 @@ function workoutsSummary(items, today) {
   var stats = trainingStats(all, today);
   var upcoming = all.filter(function (i) { return !i.sessionId && i.date >= today; })[0];
   var next = upcoming ? { name: upcoming.programName || "Workout", date: upcoming.date } : null;
-  if (stats.thisWeek.assigned === 0 && !next) return { kind: "empty", text: "No workout assigned this week", next: null };
-  return {
-    kind: "active",
-    text: stats.thisWeek.assigned > 0 ? stats.thisWeek.tracked + " of " + stats.thisWeek.assigned + " tracked this week" : "Nothing assigned this week",
-    next: next,
-  };
+  var week = stats.thisWeek;
+  if (week.assigned === 0 && week.upcoming === 0 && !next) return { kind: "empty", text: "No workout assigned this week", next: null };
+  // Only workouts that are due count toward "x of y tracked"; ones still
+  // ahead this week are mentioned separately so they don't read as missed.
+  var text;
+  if (week.assigned > 0) {
+    text = week.tracked + " of " + week.assigned + " tracked this week" + (week.upcoming > 0 ? " · " + week.upcoming + " more planned" : "");
+  } else if (week.upcoming > 0) {
+    text = week.upcoming + " planned this week";
+  } else {
+    text = "Nothing assigned this week";
+  }
+  return { kind: "active", text: text, next: next };
 }
 
 /* null = the scheduled_workouts table has not been created yet. */
@@ -185,8 +192,9 @@ function TrainingTab(props) {
   if (items === null) {
     return h("div", { className: "ex-theme" },
       h("div", { className: "tr-notice" },
-        h("div", { className: "tr-notice-title" }, "Training calendar needs a one-time setup"),
-        h("p", null, "Run the scheduled_workouts block from supabase/schema.sql in the Supabase SQL editor, then reload. Everything else in the app keeps working meanwhile.")
+        h("div", { className: "tr-notice-title" }, "The training calendar isn't switched on yet"),
+        h("p", null, "It needs a quick one-time setup before you can plan workouts here. Nothing else in the app is affected, and none of your clients' information has changed."),
+        h("p", { className: "tr-notice-tech" }, "For whoever manages your database: run the scheduled_workouts section of supabase/schema.sql, then reload this page.")
       )
     );
   }
@@ -207,7 +215,7 @@ function TrainingTab(props) {
   return h("div", { className: "ex-theme" },
     h("div", { className: "tr-stats" },
       h("div", { className: "tr-stat" }, h("div", { className: "tr-stat-label" }, "Last 7 days"), h("div", { className: "tr-stat-value" }, statValue(stats.last7)), h("div", { className: "tr-stat-sub" }, "Tracked")),
-      h("div", { className: "tr-stat" }, h("div", { className: "tr-stat-label" }, "This week"), h("div", { className: "tr-stat-value" }, statValue(stats.thisWeek)), h("div", { className: "tr-stat-sub" }, "Tracked")),
+      h("div", { className: "tr-stat" }, h("div", { className: "tr-stat-label" }, "This week"), h("div", { className: "tr-stat-value" }, statValue(stats.thisWeek)), h("div", { className: "tr-stat-sub" }, "Tracked"), stats.thisWeek.upcoming > 0 && h("div", { className: "tr-stat-more" }, stats.thisWeek.upcoming + " upcoming")),
       h("div", { className: "tr-stat" }, h("div", { className: "tr-stat-label" }, "Next week"), h("div", { className: "tr-stat-value" }, String(stats.nextWeek.assigned)), h("div", { className: "tr-stat-sub" }, "Assigned"))
     ),
     h("div", { className: "tr-week" },

@@ -128,8 +128,8 @@ assert.strictEqual(sandbox.scheduleStatus({ date: "2026-10-05", sessionId: null 
 
 // trainingStats, with "today" = Saturday 2026-10-03 (week 09-28..10-04).
 const monMissed = { date: "2026-09-28", sessionId: null };
-assert.deepEqual(sandbox.trainingStats([monMissed], "2026-10-03"), {
-  last7: { assigned: 1, tracked: 0 }, thisWeek: { assigned: 1, tracked: 0 }, nextWeek: { assigned: 0 },
+assert.deepEqual(JSON.parse(JSON.stringify(sandbox.trainingStats([monMissed], "2026-10-03"))), {
+  last7: { assigned: 1, tracked: 0 }, thisWeek: { assigned: 1, tracked: 0, upcoming: 0 }, nextWeek: { assigned: 0 },
 });
 const stats2 = sandbox.trainingStats([
   monMissed,
@@ -138,9 +138,29 @@ const stats2 = sandbox.trainingStats([
   { date: "2026-09-20", sessionId: "s0" },
 ], "2026-10-03");
 assert.deepEqual(stats2.last7, { assigned: 2, tracked: 1 }, "09-27..10-03 only");
-assert.deepEqual(stats2.thisWeek, { assigned: 2, tracked: 1 });
+assert.deepEqual(JSON.parse(JSON.stringify(stats2.thisWeek)), { assigned: 2, tracked: 1, upcoming: 0 });
 assert.deepEqual(stats2.nextWeek, { assigned: 1 });
-assert.deepEqual(sandbox.trainingStats(undefined, "2026-10-03").thisWeek, { assigned: 0, tracked: 0 });
+assert.deepEqual(JSON.parse(JSON.stringify(sandbox.trainingStats(undefined, "2026-10-03").thisWeek)), { assigned: 0, tracked: 0, upcoming: 0 });
+
+// A workout scheduled for later this week that hasn't happened is NOT counted
+// as assigned/tracked yet; it shows as "upcoming" until its day arrives.
+const futureOnly = JSON.parse(JSON.stringify(sandbox.trainingStats([{ date: "2026-10-04", sessionId: null }], "2026-10-03")));
+assert.deepEqual(futureOnly.thisWeek, { assigned: 0, tracked: 0, upcoming: 1 }, "Sunday is still in the future on Saturday");
+assert.deepEqual(futureOnly.last7, { assigned: 0, tracked: 0 });
+// Today's own workout is due today, so it counts (not yet tracked).
+const dueToday = JSON.parse(JSON.stringify(sandbox.trainingStats([{ date: "2026-10-03", sessionId: null }], "2026-10-03")));
+assert.deepEqual(dueToday.thisWeek, { assigned: 1, tracked: 0, upcoming: 0 });
+// Mixed: Mon tracked, Wed missed, Sun planned.
+const mixedWeek = JSON.parse(JSON.stringify(sandbox.trainingStats([
+  { date: "2026-09-28", sessionId: "s1" }, { date: "2026-09-30", sessionId: null }, { date: "2026-10-04", sessionId: null },
+], "2026-10-03")));
+assert.deepEqual(mixedWeek.thisWeek, { assigned: 2, tracked: 1, upcoming: 1 });
+// Doing a future day's workout early and saving it is real work: it counts as tracked.
+const doneEarly = JSON.parse(JSON.stringify(sandbox.trainingStats([{ date: "2026-10-04", sessionId: "s7" }], "2026-10-03")));
+assert.deepEqual(doneEarly.thisWeek, { assigned: 1, tracked: 1, upcoming: 0 });
+// Once the day arrives it becomes due and counts.
+const nextDay = JSON.parse(JSON.stringify(sandbox.trainingStats([{ date: "2026-10-04", sessionId: null }], "2026-10-04")));
+assert.deepEqual(nextDay.thisWeek, { assigned: 1, tracked: 0, upcoming: 0 });
 
 // Scheduled-workout row mapping.
 const sched = sandbox.rowToScheduled({ id: "w1", client_id: "c1", program_id: "t1", program_name: "Lower Body", scheduled_date: "2026-09-28", session_id: null, created_at: "2026-09-27T10:00:00Z" });

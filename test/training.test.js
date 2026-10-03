@@ -78,8 +78,15 @@ const active = plainObj(sandbox.workoutsSummary([
   { id: "d", date: "2026-10-04", sessionId: null, programName: "Mobility", createdAt: "4" },
 ], T));
 assert.strictEqual(active.kind, "active");
-assert.strictEqual(active.text, "1 of 3 tracked this week", "Mon tracked, Wed missed, Sun planned = 1 of 3");
+assert.strictEqual(active.text, "1 of 2 tracked this week · 1 more planned", "Mon tracked, Wed missed are due; Sun is still ahead");
 assert.deepEqual(active.next, { name: "Mobility", date: "2026-10-04" }, "earliest upcoming untracked, not the missed one");
+// Only a later-this-week workout: it is planned, NOT "0 of 1 tracked".
+const futureThisWeek = plainObj(sandbox.workoutsSummary([{ id: "f", date: "2026-10-04", sessionId: null, programName: "Core", createdAt: "1" }], T));
+assert.strictEqual(futureThisWeek.text, "1 planned this week");
+assert.deepEqual(futureThisWeek.next, { name: "Core", date: "2026-10-04" });
+// Only today's workout, not done yet: due today, so it counts.
+const todayOnly = plainObj(sandbox.workoutsSummary([{ id: "t", date: "2026-10-03", sessionId: null, programName: "Core", createdAt: "1" }], T));
+assert.strictEqual(todayOnly.text, "0 of 1 tracked this week");
 // Only future work assigned: still says what's next.
 const onlyNext = plainObj(sandbox.workoutsSummary([{ id: "x", date: "2026-10-06", sessionId: null, programName: "Core", createdAt: "1" }], T));
 assert.strictEqual(onlyNext.text, "Nothing assigned this week");

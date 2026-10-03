@@ -274,7 +274,10 @@ function scheduleStatus(item, todayIso) {
   return item.date < todayIso ? "missed" : "planned";
 }
 /* The three tiles above the calendar: the 7 days ending today, this week,
-   and next week (next week only counts what's assigned). */
+   and next week. Tracked/assigned only count workouts that are DUE (today or
+   earlier): one scheduled for later this week that hasn't happened yet is not
+   "0 of 1 tracked", it is reported separately as `upcoming` until its day
+   arrives. Next week only counts what's assigned. */
 function trainingStats(items, todayIso) {
   var list = items || [];
   function count(from, to) {
@@ -282,10 +285,14 @@ function trainingStats(items, todayIso) {
     return { assigned: inRange.length, tracked: inRange.filter(function (i) { return !!i.sessionId; }).length };
   }
   var weekStart = weekStartIso(todayIso);
+  var weekEnd = addDaysIso(weekStart, 6);
   var nextStart = addDaysIso(weekStart, 7);
+  var inWeek = list.filter(function (i) { return i.date >= weekStart && i.date <= weekEnd; });
+  var counted = inWeek.filter(function (i) { return i.date <= todayIso || !!i.sessionId; });
+  var upcoming = inWeek.filter(function (i) { return i.date > todayIso && !i.sessionId; }).length;
   return {
     last7: count(addDaysIso(todayIso, -6), todayIso),
-    thisWeek: count(weekStart, addDaysIso(weekStart, 6)),
+    thisWeek: { assigned: counted.length, tracked: counted.filter(function (i) { return !!i.sessionId; }).length, upcoming: upcoming },
     nextWeek: { assigned: count(nextStart, addDaysIso(nextStart, 6)).assigned },
   };
 }
@@ -571,7 +578,7 @@ var scheduledWorkoutRepository = {
     return supabase.from("scheduled_workouts").insert(rows).select().then(function (res) {
       if (res.error) {
         if (isMissingScheduleTable(res.error)) {
-          throw new Error("The training calendar needs a one-time database update before you can assign workouts. Run the scheduled_workouts block from supabase/schema.sql in the Supabase SQL editor.");
+          throw new Error("The training calendar isn't set up yet, so workouts can't be assigned. It needs a quick one-time setup first (see supabase/schema.sql).");
         }
         throw res.error;
       }

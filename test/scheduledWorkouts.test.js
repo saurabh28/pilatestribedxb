@@ -75,7 +75,7 @@ function reset(fn) { ops = []; table = null; respond = fn; }
   reset(function () { return { data: null, error: missingTable }; });
   await assert.rejects(
     function () { return repo.createMany([{ clientId: "c1", programId: "t1", programName: "x", date: "2026-09-29" }]); },
-    function (e) { return !!e && /one-time database update/i.test(e.message); }
+    function (e) { return !!e && /isn't set up yet/i.test(e.message) && !/Supabase|SQL/i.test(e.message.split("(")[0]); }
   );
 
   // linkSession marks an assignment as tracked by pointing it at the session.
