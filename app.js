@@ -1277,48 +1277,6 @@ function SessionFormPage(props) {
   );
 }
 
-function formatSetLine(s, i) {
-  var parts = [];
-  if (s.reps != null) parts.push(s.reps + " reps");
-  if (s.weight) parts.push(s.weight);
-  if (s.holdSeconds != null) parts.push(s.holdSeconds + "s hold");
-  if (s.restSeconds != null) parts.push(s.restSeconds + "s rest");
-  return "Set " + (i + 1) + (parts.length ? ": " + parts.join(", ") : " — no detail recorded");
-}
-function formatSpringLine(sp) {
-  var parts = [];
-  if (sp.count != null) parts.push(sp.count + "x");
-  if (sp.color) parts.push(sp.color);
-  if (sp.level) parts.push("level " + sp.level);
-  return parts.join(" ") || "Spring";
-}
-function ExerciseSummary(props) {
-  var ex = props.exercise;
-  var setDetails = normalizedSetDetails(ex);
-  var springs = normalizedSprings(ex);
-  var selectedProps = normalizedProps(ex);
-  var hasRealSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
-  var meta = [];
-  if (ex.distance) meta.push(ex.distance);
-  if (ex.intensity) meta.push(ex.intensity);
-  if (ex.duration != null) meta.push(ex.duration + "s");
-  if (ex.side && ex.side !== "N/A") meta.push(ex.side);
-  if (springs.length) meta.push("Springs: " + springs.map(formatSpringLine).join(", "));
-  if (selectedProps.length) meta.push("Props: " + selectedProps.map(function (p) { return p.value ? p.name + " (" + p.value + ")" : p.name; }).join(", "));
-  if (ex.assistanceLevel) meta.push(ex.assistanceLevel);
-  if (ex.box) meta.push("Box");
-  return h("div", { style: { padding: "10px 0", borderBottom: "1px solid var(--separator)" } },
-    h("div", { className: "flex-between" },
-      h("span", { style: { fontWeight: 700, fontSize: 14.5 } }, (props.index + 1) + ". " + (ex.exerciseName || "Untitled exercise")),
-      h(Badge, { tone: "neutral" }, ex.category)
-    ),
-    hasRealSetData && h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 2 } },
-      setDetails.map(function (s, i) { return h("div", { key: s.id || i, className: "text-secondary", style: { fontSize: 12.5 } }, formatSetLine(s, i)); })
-    ),
-    meta.length > 0 && h("div", { className: "text-secondary", style: { fontSize: 12.5, marginTop: 4 } }, meta.join(" · ")),
-    ex.notes && h("div", { className: "text-secondary", style: { fontSize: 12.5, marginTop: 4, fontStyle: "italic" } }, ex.notes)
-  );
-}
 function DetailRow(props) {
   if (!props.value || !props.value.trim()) return null;
   return h("div", { style: { marginBottom: 12 } },
