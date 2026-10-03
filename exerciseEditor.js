@@ -246,26 +246,30 @@ function ExerciseCarousel(props) {
   }, [count]);
 
   var onAddSlide = active >= exercises.length;
-  return h("div", null,
-    exercises.length > 0 && h("div", { className: "ex-pager" },
-      h("span", { className: "ex-pager-label" }, onAddSlide ? "Add exercise" : "Exercise " + (active + 1) + " / " + exercises.length),
-      h("div", { className: "ex-pager-nav" },
-        h("button", { type: "button", className: "ex-pager-btn", "aria-label": "Previous exercise", disabled: active === 0, onClick: function () { goTo(active - 1); } }, h(ChevronLeftIcon, { width: 18, height: 18 })),
-        h("button", { type: "button", className: "ex-pager-btn", "aria-label": "Next exercise", disabled: active >= count - 1, onClick: function () { goTo(active + 1); } }, h(ChevronRightIcon, { width: 18, height: 18 }))
-      )
-    ),
-    exercises.length > 0 && count <= 11 && h("div", { className: "ex-dots" },
+  function dots() {
+    return exercises.length > 0 && count <= 11 && h("div", { className: "ex-dots" },
       Array.apply(null, Array(count)).map(function (_, i) {
         return h("button", {
           key: i, type: "button", className: classNames("ex-dot", i === active && "active"),
           "aria-label": i < exercises.length ? "Go to exercise " + (i + 1) : "Go to add exercise", onClick: function () { goTo(i); },
         });
       })
+    );
+  }
+  return h("div", null,
+    exercises.length > 0 && h("div", { className: "ex-pager" },
+      h("span", { className: "ex-pager-label" }, onAddSlide ? "Add exercise" : "Exercise " + (active + 1) + "/" + exercises.length),
+      h("div", { className: "ex-pager-nav" },
+        h("button", { type: "button", className: "ex-pager-btn", "aria-label": "Previous exercise", disabled: active === 0, onClick: function () { goTo(active - 1); } }, h(ChevronLeftIcon, { width: 18, height: 18 })),
+        h("button", { type: "button", className: "ex-pager-btn", "aria-label": "Next exercise", disabled: active >= count - 1, onClick: function () { goTo(active + 1); } }, h(ChevronRightIcon, { width: 18, height: 18 }))
+      )
     ),
+    dots(),
     h("div", { className: "ex-carousel", ref: trackRef, onScroll: onScroll },
       exercises.map(function (ex, i) { return h("div", { key: ex.id, className: "ex-slide" }, props.renderRow(ex, i)); }),
       h("div", { key: "__add", className: "ex-slide ex-slide-add" }, props.addButton)
-    )
+    ),
+    h("div", { className: "ex-dots-bottom" }, dots())
   );
 }
 

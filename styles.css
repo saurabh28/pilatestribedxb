@@ -398,9 +398,9 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; min-width: 0; 
 .exercise-editor .ex-dot { width: 22px; height: 28px; border: none; background: none; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .exercise-editor .ex-dot::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: var(--ex-muted); opacity: .4; transition: width .2s ease, opacity .2s ease, background .2s ease; }
 .exercise-editor .ex-dot.active::before { width: 18px; background: var(--ex-brand); opacity: 1; }
-.exercise-editor .ex-carousel { position: relative; display: flex; align-items: flex-start; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-left: 4px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; padding: 4px 4px 18px; margin: 0 -4px; transition: height .25s ease; }
+.exercise-editor .ex-carousel { position: relative; display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-left: 4px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scrollbar-width: none; padding: 4px 4px 18px; margin: 0 -4px; transition: height .25s ease; }
 .exercise-editor .ex-carousel::-webkit-scrollbar { display: none; }
-.exercise-editor .ex-slide { flex: 0 0 92%; min-width: 0; scroll-snap-align: start; }
+.exercise-editor .ex-slide { flex: 0 0 100%; min-width: 0; scroll-snap-align: start; }
 .exercise-editor .ex-slide .exercise-card { margin-bottom: 0; }
 .exercise-editor .ex-slide-add { display: flex; align-items: stretch; }
 .exercise-editor .ex-slide-add .btn-secondary { background: transparent; border: 1.5px dashed var(--ex-dash); color: var(--ex-brand); border-radius: 20px; padding: 15px; min-height: 160px; width: 100%; flex-direction: column; transition: background .15s ease, transform .12s ease; }
@@ -416,3 +416,4 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; min-width: 0; 
 .exercise-editor .set-row .form-field { flex: 0 0 auto; min-width: 0; margin-bottom: 0; }
 .exercise-editor .ex-section-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0; background: none; border: none; text-align: left; cursor: pointer; font-family: inherit; }
 .exercise-editor .ex-section-summary { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ex-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.exercise-editor .ex-dots-bottom { margin-top: -6px; }
