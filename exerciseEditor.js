@@ -314,9 +314,16 @@ function ExerciseEditor(props) {
   function requestFocus(index) { setFocusRequest(function (r) { return { index: index, token: r.token + 1 }; }); }
   function update(id, patch) { props.onChange(exercises.map(function (e) { return e.id === id ? Object.assign({}, e, patch) : e; })); }
   function remove(id) { props.onChange(exercises.filter(function (e) { return e.id !== id; })); }
+  // In the list, adding an exercise folds the ones already there to their
+  // summaries (the same "collapse all" signal) and brings the new, open card
+  // into view. The new card mounts after the signal, so it stays open.
+  var _nw = useState(""), newId = _nw[0], setNewId = _nw[1];
   function add() {
-    props.onChange(exercises.concat([blankExercise()]));
-    if (carousel) requestFocus(exercises.length);
+    var fresh = blankExercise();
+    props.onChange(exercises.concat([fresh]));
+    if (carousel) { requestFocus(exercises.length); return; }
+    if (exercises.length > 0) bulkSet("collapse");
+    setNewId(fresh.id);
   }
   function logOtherSide(id) {
     var idx = exercises.findIndex(function (e) { return e.id === id; });
@@ -330,7 +337,7 @@ function ExerciseEditor(props) {
   }
   function renderRow(ex, i) {
     return h(ExerciseRow, {
-      key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, alwaysExpanded: carousel, bulk: bulk,
+      key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, alwaysExpanded: carousel, bulk: bulk, scrollIntoViewOnMount: ex.id === newId,
       onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); },
     });
   }
@@ -427,6 +434,16 @@ function ExerciseRow(props) {
   // "Collapse all / Expand all" arrives as a token that changes per click.
   // Remember the token this card was created under so a card added later is
   // not collapsed by an earlier "Collapse all".
+  var cardRef = React.useRef(null);
+  useEffect(function () {
+    // A card just added in the list scrolls itself into view (after the
+    // earlier cards have folded and the layout has settled).
+    if (!props.scrollIntoViewOnMount) return undefined;
+    var t = setTimeout(function () {
+      if (cardRef.current && cardRef.current.scrollIntoView) cardRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 60);
+    return function () { clearTimeout(t); };
+  }, []);
   var seenBulk = React.useRef(props.bulk ? props.bulk.token : 0);
   useEffect(function () {
     if (props.bulk && props.bulk.token !== seenBulk.current) {
@@ -456,7 +473,7 @@ function ExerciseRow(props) {
 
   if (collapsed) {
     var summaryParts = summaryLineParts();
-    return h("div", { className: "exercise-card", key: "collapsed" },
+    return h("div", { className: "exercise-card", key: "collapsed", ref: cardRef },
       h("div", { className: "exercise-card-head ex-collapsed-head" },
         h("button", { type: "button", className: "exercise-card-summary-toggle", onClick: function () { setCollapsed(false); } },
           h("span", { className: "ex-collapsed-text" },
@@ -471,7 +488,7 @@ function ExerciseRow(props) {
     );
   }
 
-  return h("div", { className: "exercise-card", key: "expanded" },
+  return h("div", { className: "exercise-card", key: "expanded", ref: cardRef },
     h("div", { className: "exercise-card-head" },
       h("span", { className: "ex-tag" }, props.alwaysExpanded ? ex.category + (ex.side && ex.side !== "N/A" ? " · " + ex.side : "") : "Exercise " + (props.index + 1)),
       h("div", { className: "ex-head-actions" },
