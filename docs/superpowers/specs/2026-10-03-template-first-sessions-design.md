@@ -6,7 +6,7 @@ Status: Approved by owner 2026-10-03. One-on-one personal training only (no grou
 
 Sessions were logged freehand with an optional "apply a program". The owner wants the workflow to be: design a workout template first (any mix of categories), assign it to a client, and run sessions from it. One expanded exercise card is also far too tall to stack in a list (about 2,000px on a phone), so loaded exercises should be swipeable cards.
 
-Templates already existed (`programs` table: name, description, `exercises` JSONB; `clients.assigned_program_id`). This change is flow and layout only: **no schema or data changes**, and saved sessions/templates are untouched.
+Templates already existed (`programs` table: name, description, `exercises` JSONB; `clients.assigned_program_id`). This change is flow and layout, plus one additive nullable column (`sessions.program_id`); no existing data is rewritten and saved sessions/templates are untouched.
 
 ## Decisions
 
