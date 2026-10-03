@@ -286,58 +286,56 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; }
 .corrective-test-header .test-name { font-weight: 700; font-size: 14px; }
 
 /* ---------------------------------------------------------------------- */
-/* Exercise editor: premium skin. Tokens are scoped to .exercise-editor;    */
-/* roll out app-wide later by moving them to :root.                         */
+/* Exercise editor: matte premium skin. Flat solid colors, hairline        */
+/* borders, soft low-contrast shadows, no gradients or glow. Tokens are     */
+/* scoped to .exercise-editor; roll out app-wide by moving them to :root.   */
 /* ---------------------------------------------------------------------- */
 .exercise-editor {
-  --ex-surface: #fffefb;
-  --ex-surface-2: #f1f7f3;
-  --ex-ink: #11211a;
-  --ex-muted: #8a9690;
-  --ex-brand: #15764e;
-  --ex-brand-soft: rgba(21, 118, 78, .09);
-  --ex-dash: rgba(21, 118, 78, .38);
-  --ex-grad: linear-gradient(135deg, #2cab76, #0f6b45);
-  --ex-on-grad: #ffffff;
-  --ex-tag-grad: linear-gradient(135deg, #1e7a52, #0f5636);
-  --ex-hair: rgba(23, 51, 38, .09);
-  --ex-tint: linear-gradient(180deg, rgba(17, 93, 62, .05), rgba(17, 93, 62, .015));
-  --ex-tint-line: rgba(17, 93, 62, .07);
-  --ex-shadow: 0 1px 2px rgba(23, 51, 38, .05), 0 14px 32px -8px rgba(23, 51, 38, .14);
-  --ex-glow: 0 4px 14px rgba(15, 107, 69, .32);
-  --ex-danger: #c2413a;
-  --ex-danger-soft: rgba(194, 65, 58, .08);
+  --ex-surface: #fbfaf7;
+  --ex-surface-2: #f0f2ee;
+  --ex-ink: #17211c;
+  --ex-muted: #86908a;
+  --ex-brand: #1d6a4a;
+  --ex-brand-soft: rgba(29, 106, 74, .08);
+  --ex-dash: rgba(29, 106, 74, .32);
+  --ex-fill: #1d6a4a;
+  --ex-on-fill: #f4f8f5;
+  --ex-tag-fill: #1b4a37;
+  --ex-hair: rgba(23, 33, 28, .09);
+  --ex-tint: rgba(29, 106, 74, .045);
+  --ex-tint-line: rgba(29, 106, 74, .07);
+  --ex-shadow: 0 1px 2px rgba(23, 33, 28, .04), 0 8px 20px -12px rgba(23, 33, 28, .14);
+  --ex-danger: #a8403a;
+  --ex-danger-soft: rgba(168, 64, 58, .08);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .exercise-editor {
-    --ex-surface: #17211c; --ex-surface-2: #1f2c26; --ex-ink: #eaf4ee; --ex-muted: #8fa398;
-    --ex-brand: #43c98c; --ex-brand-soft: rgba(67, 201, 140, .13); --ex-dash: rgba(67, 201, 140, .42);
-    --ex-grad: linear-gradient(135deg, #3ed596, #1f9a66); --ex-on-grad: #04170e;
-    --ex-tag-grad: linear-gradient(135deg, #2a8a5f, #17543a);
-    --ex-hair: rgba(255, 255, 255, .09);
-    --ex-tint: linear-gradient(180deg, rgba(67, 201, 140, .07), rgba(67, 201, 140, .02)); --ex-tint-line: rgba(67, 201, 140, .11);
-    --ex-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 32px -8px rgba(0, 0, 0, .6); --ex-glow: 0 4px 14px rgba(67, 201, 140, .28);
-    --ex-danger: #ff7a70; --ex-danger-soft: rgba(255, 122, 112, .13);
+    --ex-surface: #171c19; --ex-surface-2: #202723; --ex-ink: #e8eeea; --ex-muted: #8a958e;
+    --ex-brand: #4fb88a; --ex-brand-soft: rgba(79, 184, 138, .12); --ex-dash: rgba(79, 184, 138, .4);
+    --ex-fill: #3a9c74; --ex-on-fill: #07140e; --ex-tag-fill: #1f5a42;
+    --ex-hair: rgba(255, 255, 255, .08);
+    --ex-tint: rgba(79, 184, 138, .05); --ex-tint-line: rgba(79, 184, 138, .1);
+    --ex-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 20px -12px rgba(0, 0, 0, .55);
+    --ex-danger: #e6857d; --ex-danger-soft: rgba(230, 133, 125, .12);
   }
 }
 :root[data-theme="dark"] .exercise-editor {
-  --ex-surface: #17211c; --ex-surface-2: #1f2c26; --ex-ink: #eaf4ee; --ex-muted: #8fa398;
-  --ex-brand: #43c98c; --ex-brand-soft: rgba(67, 201, 140, .13); --ex-dash: rgba(67, 201, 140, .42);
-  --ex-grad: linear-gradient(135deg, #3ed596, #1f9a66); --ex-on-grad: #04170e;
-  --ex-tag-grad: linear-gradient(135deg, #2a8a5f, #17543a);
-  --ex-hair: rgba(255, 255, 255, .09);
-  --ex-tint: linear-gradient(180deg, rgba(67, 201, 140, .07), rgba(67, 201, 140, .02)); --ex-tint-line: rgba(67, 201, 140, .11);
-  --ex-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 32px -8px rgba(0, 0, 0, .6); --ex-glow: 0 4px 14px rgba(67, 201, 140, .28);
-  --ex-danger: #ff7a70; --ex-danger-soft: rgba(255, 122, 112, .13);
+  --ex-surface: #171c19; --ex-surface-2: #202723; --ex-ink: #e8eeea; --ex-muted: #8a958e;
+  --ex-brand: #4fb88a; --ex-brand-soft: rgba(79, 184, 138, .12); --ex-dash: rgba(79, 184, 138, .4);
+  --ex-fill: #3a9c74; --ex-on-fill: #07140e; --ex-tag-fill: #1f5a42;
+  --ex-hair: rgba(255, 255, 255, .08);
+  --ex-tint: rgba(79, 184, 138, .05); --ex-tint-line: rgba(79, 184, 138, .1);
+  --ex-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 20px -12px rgba(0, 0, 0, .55);
+  --ex-danger: #e6857d; --ex-danger-soft: rgba(230, 133, 125, .12);
 }
 
 .exercise-editor .exercise-card { background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 20px; padding: 18px; margin-bottom: 14px; box-shadow: var(--ex-shadow); animation: exEnter .26s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes exEnter { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .exercise-editor .exercise-card { animation: none; } .exercise-editor * { transition: none !important; } }
 
-.ex-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: #e9f8f1; background: var(--ex-tag-grad); padding: 5px 11px 5px 9px; border-radius: 7px; }
-.ex-tag::before { content: ""; width: 5px; height: 5px; border-radius: 999px; background: #7fe8b8; box-shadow: 0 0 6px #7fe8b8; }
-.ex-name { display: block; font-size: 19px; font-weight: 750; letter-spacing: -.025em; color: var(--ex-ink); line-height: 1.2; text-align: left; }
+.ex-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #e6efe9; background: var(--ex-tag-fill); padding: 5px 11px 5px 9px; border-radius: 7px; }
+.ex-tag::before { content: ""; width: 5px; height: 5px; border-radius: 999px; background: #8fc4a9; }
+.ex-name { display: block; font-size: 19px; font-weight: 700; letter-spacing: -.025em; color: var(--ex-ink); line-height: 1.2; text-align: left; }
 .ex-summary { display: block; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--ex-muted); text-transform: uppercase; line-height: 1.5; text-align: left; }
 .ex-collapsed-text { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; flex: 1; }
 .exercise-editor .exercise-card-head { margin-bottom: 12px; }
@@ -346,15 +344,15 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; }
 .exercise-editor .exercise-card-chevron { color: var(--ex-muted); margin-top: 4px; }
 
 .exercise-editor .form-label,
-.exercise-editor .exercise-card-title { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ex-brand); }
+.exercise-editor .exercise-card-title { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ex-brand); }
 .exercise-editor .form-hint,
 .exercise-editor .text-tertiary { color: var(--ex-muted); }
 
 .exercise-editor .ex-section { background: var(--ex-tint); border: 1px solid var(--ex-tint-line); border-radius: 16px; padding: 13px; margin-bottom: 12px; }
 .exercise-editor .spring-row-card,
-.exercise-editor .step-item { background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 14px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(23, 51, 38, .04); }
-.exercise-editor .step-num { background: var(--ex-grad); color: var(--ex-on-grad); }
-.exercise-editor .step-name-input { font-size: 14px; font-weight: 650; letter-spacing: -.01em; color: var(--ex-ink); }
+.exercise-editor .step-item { background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 14px; padding: 12px; margin-bottom: 8px; box-shadow: none; }
+.exercise-editor .step-num { background: var(--ex-fill); color: var(--ex-on-fill); }
+.exercise-editor .step-name-input { font-size: 14px; font-weight: 600; letter-spacing: -.01em; color: var(--ex-ink); }
 .exercise-editor .set-row-index { background: var(--ex-brand-soft); color: var(--ex-brand); }
 
 .exercise-editor .input,
@@ -362,27 +360,27 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; }
 .exercise-editor .input:focus,
 .exercise-editor .textarea:focus { border-color: var(--ex-brand); box-shadow: 0 0 0 3px var(--ex-brand-soft); }
 
-.exercise-editor .chip { background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 10px; color: var(--ex-ink); font-weight: 700; box-shadow: 0 1px 2px rgba(23, 51, 38, .06); transition: transform .12s ease, box-shadow .2s ease, background .2s ease; }
-.exercise-editor .chip.selected { background: var(--ex-grad); color: var(--ex-on-grad); border-color: transparent; box-shadow: var(--ex-glow), inset 0 1px 0 rgba(255, 255, 255, .22); }
-.exercise-editor .chip:active { transform: scale(.95); }
+.exercise-editor .chip { background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 10px; color: var(--ex-ink); font-weight: 600; box-shadow: none; transition: transform .12s ease, background .2s ease, color .2s ease; }
+.exercise-editor .chip.selected { background: var(--ex-fill); color: var(--ex-on-fill); border-color: var(--ex-fill); box-shadow: none; }
+.exercise-editor .chip:active { transform: scale(.96); }
 
 .exercise-editor .segmented { background: var(--ex-brand-soft); border-radius: 12px; padding: 3px; }
 .exercise-editor .segmented button { padding: 9px 10px; font-size: 12.5px; border-radius: 9px; color: var(--ex-muted); transition: background .18s ease, color .18s ease, transform .12s ease; }
-.exercise-editor .segmented button.active { background: var(--ex-surface); color: var(--ex-ink); box-shadow: 0 1px 4px rgba(23, 51, 38, .16); }
-.exercise-editor .segmented button:active { transform: scale(.96); }
+.exercise-editor .segmented button.active { background: var(--ex-surface); color: var(--ex-ink); box-shadow: 0 1px 2px rgba(23, 33, 28, .1); }
+.exercise-editor .segmented button:active { transform: scale(.97); }
 
 .exercise-editor .stepper { background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 14px; padding: 3px; gap: 2px; }
 .exercise-editor .stepper button { background: var(--ex-surface-2); box-shadow: none; color: var(--ex-brand); border-radius: 11px; transition: transform .12s ease, background .15s ease; }
-.exercise-editor .stepper button:active { transform: scale(.92); background: var(--ex-brand-soft); }
-.exercise-editor .stepper .stepper-value { background: transparent; color: var(--ex-ink); font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.exercise-editor .stepper button:active { transform: scale(.94); background: var(--ex-brand-soft); }
+.exercise-editor .stepper .stepper-value { background: transparent; color: var(--ex-ink); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .exercise-editor .stepper-input { background: var(--ex-surface); color: var(--ex-ink); border-color: var(--ex-brand); font-variant-numeric: tabular-nums; }
 
-.exercise-editor .btn-text { display: flex; width: 100%; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed var(--ex-dash); border-radius: 12px; padding: 11px 14px; background: transparent; color: var(--ex-brand); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .15s ease, transform .12s ease; }
+.exercise-editor .btn-text { display: flex; width: 100%; align-items: center; justify-content: center; gap: 6px; border: 1.5px dashed var(--ex-dash); border-radius: 12px; padding: 11px 14px; background: transparent; color: var(--ex-brand); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s ease, transform .12s ease; }
 .exercise-editor .btn-text:hover { background: var(--ex-brand-soft); }
-.exercise-editor .btn-text:active { transform: scale(.98); }
+.exercise-editor .btn-text:active { transform: scale(.985); }
 .exercise-editor > .btn-secondary { background: transparent; border: 1.5px dashed var(--ex-dash); color: var(--ex-brand); border-radius: 16px; padding: 15px; transition: background .15s ease, transform .12s ease; }
 .exercise-editor > .btn-secondary:hover { background: var(--ex-brand-soft); opacity: 1; }
-.exercise-editor > .btn-secondary:active { transform: scale(.98); }
+.exercise-editor > .btn-secondary:active { transform: scale(.985); }
 
 .exercise-editor .exercise-remove-btn { color: var(--ex-danger); font-size: 12px; padding: 8px; border-radius: 10px; }
 .exercise-editor .set-remove-btn { background: var(--ex-danger-soft); color: var(--ex-danger); border-radius: 12px; }
