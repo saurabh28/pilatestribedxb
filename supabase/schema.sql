@@ -114,9 +114,14 @@ create table if not exists sessions (
   progression text not null default '',
   homework text not null default '',
   next_session_focus text not null default '',
+  program_id uuid references programs(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- For databases created before program_id existed (the create table above is
+-- a no-op there): remembers which workout template a session was run from.
+alter table sessions add column if not exists program_id uuid references programs(id) on delete set null;
+create index if not exists sessions_program_idx on sessions (program_id);
 create index if not exists sessions_trainer_idx on sessions (trainer_id);
 create index if not exists sessions_client_date_idx on sessions (client_id, date);
 

@@ -14,7 +14,7 @@ Templates already existed (`programs` table: name, description, `exercises` JSON
 - **Default plan + per-session pick.** A client's default template (existing `assignedProgramId`) is auto-loaded when a session starts; the coach can pick a different template for that session.
 - **Templates are category-agnostic.** The template has no category; each exercise carries its own.
 - **Label rename only:** "Programs" becomes "Workout Templates" in the UI. Routes (`/programs`), table and field names are unchanged.
-- **Session template is not stored on the session** (would need a schema change). Deferred.
+- **A session remembers its template** (`sessions.program_id`, nullable, `on delete set null`). Needs a one-line SQL migration the owner runs by hand. Until it is run, saving still works: the repository detects the missing-column error and retries without it (covered by `test/sessionSave.test.js`). Session detail shows a "Template: X" badge; the templates list shows "N sessions".
 
 ## Behavior
 
@@ -26,7 +26,7 @@ Templates already existed (`programs` table: name, description, `exercises` JSON
 
 ## Carousel (`ExerciseEditor layout="carousel"`)
 
-- One card at a time, ~92% wide so the next card peeks; CSS scroll-snap; pager "EXERCISE 2 / 6", tappable dots (up to 10 slides), prev/next buttons, trailing dashed "Add exercise" slide.
+- One full-width card at a time (no neighbor peeks in); CSS scroll-snap; pager "EXERCISE 2/6" with prev/next buttons, tappable dots above and below the card (up to 10 slides), trailing dashed "Add exercise" slide.
 - Track height follows the current card (ResizeObserver) so short cards leave no gap.
 - "Add exercise" and "Also log the other side" scroll to the new card.
 - Session-mode card is compact: name/category/side/duration fold behind "Edit details" (open by default only for an unnamed exercise); Sequence, Springs, Props and Pilates detail are collapsible with a one-line summary. Sets stay open. Result: ~2,070px down to ~740px on a phone.
@@ -43,4 +43,4 @@ Pure functions unit-tested: `carouselIndexFromScroll`, `defaultTemplateId`, `ins
 
 ## Out of scope
 
-Progression/regression suggestions, exercise library, group sessions, storing the source template on a session.
+Progression/regression suggestions, exercise library, group sessions.

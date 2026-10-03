@@ -1111,7 +1111,7 @@ function blankSession(clientId, sessionNumber) {
   return {
     clientId: clientId, date: todayIso(), sessionNumber: sessionNumber, trainingType: [], durationMinutes: 60,
     exercises: [], sessionNote: "", clientResponse: "", painScore: null, rpe: null, modifications: "",
-    progression: "", homework: "", nextSessionFocus: "",
+    progression: "", homework: "", nextSessionFocus: "", programId: null,
   };
 }
 function SessionFormPage(props) {
@@ -1150,6 +1150,7 @@ function SessionFormPage(props) {
         exercises: existingSession.exercises, sessionNote: existingSession.sessionNote, clientResponse: existingSession.clientResponse,
         painScore: existingSession.painScore, rpe: existingSession.rpe, modifications: existingSession.modifications,
         progression: existingSession.progression, homework: existingSession.homework, nextSessionFocus: existingSession.nextSessionFocus,
+        programId: existingSession.programId,
       });
     }
   }, [mode, existingSession, form]);
@@ -1199,7 +1200,9 @@ function SessionFormPage(props) {
     }
     setSaving(true);
     setSubmitError("");
-    var p = mode === "create" ? sessionRepository.create(form) : sessionRepository.update(props.sessionId, form);
+    var p = mode === "create"
+      ? sessionRepository.create(Object.assign({}, form, { programId: selectedProgramId }))
+      : sessionRepository.update(props.sessionId, form);
     p.then(function (result) {
       var sessionId = mode === "create" ? result.id : props.sessionId;
       var trackedAreas = client && client.trackedBodyAreas ? client.trackedBodyAreas : [];
@@ -1313,6 +1316,7 @@ function DetailRow(props) {
 function SessionDetailPage(props) {
   var session = useSession(props.sessionId);
   var client = useClient(session && session.clientId);
+  var sourceTemplate = useProgram(session && session.programId);
   if (session === undefined) return h(React.Fragment, null, h(PageHeader, { title: "Session", back: true }), h("div", { className: "page-content" }));
 
   var hasNotes = session.sessionNote || session.clientResponse || session.modifications || session.progression || session.homework || session.nextSessionFocus;
@@ -1324,6 +1328,7 @@ function SessionDetailPage(props) {
         h("div", { style: { fontWeight: 700, fontSize: 16 } }, client ? h(Link, { to: "/clients/" + client.id }, client.fullName) : "Client"),
         h("div", { className: "text-secondary", style: { fontSize: 13, marginBottom: 8 } }, formatDate(session.date) + " · " + (session.durationMinutes ? session.durationMinutes + " min" : "Duration not set")),
         h("div", { className: "flex-row gap-8 wrap" },
+          sourceTemplate && h(Link, { to: "/programs/" + sourceTemplate.id + "/edit" }, h(Badge, { tone: "success" }, "Template: " + sourceTemplate.name)),
           session.trainingType.map(function (t) { return h(Badge, { key: t, tone: "info" }, t); }),
           session.painScore != null && h(Badge, { tone: session.painScore >= 5 ? "danger" : "neutral" }, "Pain " + session.painScore + "/10"),
           session.rpe != null && h(Badge, { tone: "info" }, "RPE " + session.rpe + "/10")
@@ -1438,6 +1443,7 @@ function AllGoalsPage() {
 
 function ProgramsListPage() {
   var programs = useAllPrograms();
+  var runCounts = sessionCountsByTemplate(useAllSessions());
   return h(React.Fragment, null,
     h(PageHeader, { title: "Workout Templates", action: h(Link, { to: "/programs/new", className: "icon-btn", "aria-label": "New template" }, h(PlusCircleIcon, null)) }),
     h("div", { className: "page-content" },
@@ -1454,7 +1460,7 @@ function ProgramsListPage() {
               return h(Link, { key: p.id, to: "/programs/" + p.id + "/edit", className: "list-row" },
                 h("div", { className: "list-row-body" },
                   h("div", { className: "list-row-title" }, p.name),
-                  h("div", { className: "list-row-subtitle" }, p.exercises.length + " exercise" + (p.exercises.length === 1 ? "" : "s") + (p.description ? " · " + truncate(p.description, 50) : ""))
+                  h("div", { className: "list-row-subtitle" }, p.exercises.length + " exercise" + (p.exercises.length === 1 ? "" : "s") + (runCounts[p.id] ? " · " + runCounts[p.id] + " session" + (runCounts[p.id] === 1 ? "" : "s") : "") + (p.description ? " · " + truncate(p.description, 50) : ""))
                 ),
                 h(ChevronRightIcon, { className: "list-row-chevron" })
               );

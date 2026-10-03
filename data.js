@@ -197,8 +197,30 @@ function rowToSession(r) {
     sessionNote: r.session_note || "", clientResponse: r.client_response || "",
     painScore: r.pain_score, rpe: r.rpe, modifications: r.modifications || "",
     progression: r.progression || "", homework: r.homework || "",
-    nextSessionFocus: r.next_session_focus || "", createdAt: r.created_at, updatedAt: r.updated_at,
+    nextSessionFocus: r.next_session_focus || "", programId: r.program_id || null,
+    createdAt: r.created_at, updatedAt: r.updated_at,
   };
+}
+/* The program_id column is added by a SQL migration the owner runs by hand.
+   If the app is deployed before that runs, saving a session must not fail:
+   spot that one specific error and retry without the column. */
+function isMissingProgramIdColumn(err) {
+  if (!err) return false;
+  return /program_id/i.test(String(err.message || "") + " " + String(err.details || ""));
+}
+/* { templateId: number of sessions run from it }. Sessions logged without a
+   template (older ones, or freehand) are simply not counted. */
+function sessionCountsByTemplate(sessions) {
+  var counts = {};
+  (sessions || []).forEach(function (s) {
+    if (s.programId) counts[s.programId] = (counts[s.programId] || 0) + 1;
+  });
+  return counts;
+}
+function stripProgramId(row) {
+  var copy = Object.assign({}, row);
+  delete copy.program_id;
+  return copy;
 }
 function sessionToRow(s) {
   var row = {};
@@ -217,6 +239,7 @@ function sessionToRow(s) {
   if ("progression" in s) row.progression = s.progression || "";
   if ("homework" in s) row.homework = s.homework || "";
   if ("nextSessionFocus" in s) row.next_session_focus = s.nextSessionFocus || "";
+  if ("programId" in s) row.program_id = s.programId || null;
   return row;
 }
 
@@ -355,11 +378,17 @@ var sessionRepository = {
   },
   create: function (input) {
     var row = sessionToRow(Object.assign({ id: generateId() }, input));
-    return supabase.from("sessions").insert(row).select().single().then(checkError).then(rowToSession).then(afterWrite);
+    function insert(r) { return supabase.from("sessions").insert(r).select().single(); }
+    return insert(row).then(function (res) {
+      return res.error && isMissingProgramIdColumn(res.error) ? insert(stripProgramId(row)) : res;
+    }).then(checkError).then(rowToSession).then(afterWrite);
   },
   update: function (id, patch) {
     var row = sessionToRow(patch);
-    return supabase.from("sessions").update(row).eq("id", id).select().maybeSingle().then(checkError).then(function (r) {
+    function save(r) { return supabase.from("sessions").update(r).eq("id", id).select().maybeSingle(); }
+    return save(row).then(function (res) {
+      return res.error && isMissingProgramIdColumn(res.error) ? save(stripProgramId(row)) : res;
+    }).then(checkError).then(function (r) {
       if (!r) throw new Error("Session not found");
       return afterWrite(rowToSession(r));
     });

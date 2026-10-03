@@ -84,4 +84,28 @@ const legacy = sandbox.instantiateProgramExercises([{ id: "x", exerciseName: "Ol
 assert.deepEqual(legacy.springs, []);
 assert.deepEqual(legacy.steps, []);
 
+// Sessions remember which workout template they were run from (program_id).
+assert.strictEqual(sandbox.rowToSession({ program_id: "t1" }).programId, "t1");
+assert.strictEqual(sandbox.rowToSession({}).programId, null);
+assert.strictEqual(sandbox.sessionToRow({ programId: "t1" }).program_id, "t1");
+assert.strictEqual(sandbox.sessionToRow({ programId: null }).program_id, null);
+assert.strictEqual("program_id" in sandbox.sessionToRow({ date: "2026-01-01" }), false, "absent field is not written");
+
+// Until the program_id column exists in the live database, saving must still
+// work: detect that specific failure and retry without the column.
+assert.strictEqual(sandbox.isMissingProgramIdColumn({ message: "Could not find the 'program_id' column of 'sessions' in the schema cache" }), true);
+assert.strictEqual(sandbox.isMissingProgramIdColumn({ message: 'column "program_id" of relation "sessions" does not exist' }), true);
+assert.strictEqual(sandbox.isMissingProgramIdColumn({ message: "permission denied for table sessions" }), false);
+assert.strictEqual(sandbox.isMissingProgramIdColumn(null), false);
+const withPid = { a: 1, program_id: "x" };
+assert.deepEqual(sandbox.stripProgramId(withPid), { a: 1 });
+assert.strictEqual(withPid.program_id, "x", "original row is not mutated");
+
+// sessionCountsByTemplate: how many sessions were run from each template.
+assert.deepEqual(
+  sandbox.sessionCountsByTemplate([{ programId: "t1" }, { programId: "t1" }, { programId: "t2" }, { programId: null }, {}]),
+  { t1: 2, t2: 1 }
+);
+assert.deepEqual(sandbox.sessionCountsByTemplate(undefined), {});
+
 console.log("data.test.js: all assertions passed");
