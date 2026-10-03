@@ -96,7 +96,7 @@ var PRIMARY_NAV = [
 var DESKTOP_NAV = [
   { to: "/sessions", label: "Session History", icon: CalendarIcon, match: function (p) { return p[0] === "sessions"; } },
   { to: "/goals", label: "Goals", icon: TargetIcon, match: function (p) { return p[0] === "goals"; } },
-  { to: "/programs", label: "Programs", icon: ClipboardIcon, match: function (p) { return p[0] === "programs"; } },
+  { to: "/programs", label: "Templates", icon: ClipboardIcon, match: function (p) { return p[0] === "programs"; } },
   { to: "/settings", label: "Settings", icon: GearIcon, match: function (p) { return p[0] === "settings"; } },
 ];
 
@@ -388,9 +388,9 @@ function ClientFormPage(props) {
           h(SelectField, { label: "Status", value: form.status, onChange: function (e) { set("status", e.target.value); } },
             h("option", { value: "active" }, "Active"), h("option", { value: "inactive" }, "Inactive")),
           h(SelectField, {
-            label: "Assigned workout program", optional: true, value: form.assignedProgramId || "",
+            label: "Default workout template", optional: true, value: form.assignedProgramId || "",
             onChange: function (e) { set("assignedProgramId", e.target.value || null); },
-            hint: "Build reusable programs under Programs, then assign one here as this client's default.",
+            hint: "Design templates under Templates, then pick one here as this client's default. New sessions start from it.",
           },
             h("option", { value: "" }, "— None —"),
             (programs || []).map(function (p) { return h("option", { key: p.id, value: p.id }, p.name); })
@@ -452,7 +452,7 @@ function OverviewTab(props) {
       h(Field, { label: "Date of birth", value: client.dateOfBirth ? formatDate(client.dateOfBirth) + (age != null ? " (" + age + " yrs)" : "") : null }),
       h(Field, { label: "Preferred training", value: client.preferredTraining.join(", ") })
     )),
-    h("section", null, h(SectionLabel, null, "Assigned program"), h(Card, null,
+    h("section", null, h(SectionLabel, null, "Default workout template"), h(Card, null,
       client.assignedProgramId && program
         ? h("div", { className: "flex-between" },
             h("div", { style: { minWidth: 0 } },
@@ -463,7 +463,7 @@ function OverviewTab(props) {
             h(Link, { to: "/programs/" + program.id + "/edit" }, h(Button, { variant: "text", size: "sm" }, "View"))
           )
         : h("p", { className: "text-secondary", style: { margin: 0, fontSize: 13.5 } },
-            "No program assigned. ", h(Link, { to: "/clients/" + client.id + "/edit" }, "Assign one"), " from a saved template."
+            "No default template. ", h(Link, { to: "/clients/" + client.id + "/edit" }, "Pick one"), " so new sessions start from it."
           )
     )),
     h("section", null, h(SectionLabel, null, "Contact"), h(Card, null,
@@ -1128,6 +1128,8 @@ function SessionFormPage(props) {
   var _pp = useState(""), selectedProgramId = _pp[0], setSelectedProgramId = _pp[1];
   var _cpo = useState(false), confirmApplyOpen = _cpo[0], setConfirmApplyOpen = _cpo[1];
   var _pdefault = useState(false), programDefaulted = _pdefault[0], setProgramDefaulted = _pdefault[1];
+  var _pt = useState(""), pendingTemplateId = _pt[0], setPendingTemplateId = _pt[1];
+  var _ed = useState(false), exercisesDirty = _ed[0], setExercisesDirty = _ed[1];
   var _bso = useState(false), bodyScoresOpen = _bso[0], setBodyScoresOpen = _bso[1];
   var _bsd = useState({}), bodyScoreDraft = _bsd[0], setBodyScoreDraft = _bsd[1];
   function setDraftScore(area, value) { setBodyScoreDraft(function (d) { var next = Object.assign({}, d); next[area] = value; return next; }); }
@@ -1152,34 +1154,49 @@ function SessionFormPage(props) {
     }
   }, [mode, existingSession, form]);
 
-  // Pre-select the client's assigned program (if any) as a one-time default,
-  // so logging a session for them starts with their usual program pre-picked.
+  // A new session starts from the client's default workout template: once
+  // the form, client and template list have all loaded, pick it and load
+  // its exercises. Runs once; the coach can switch templates afterwards.
   useEffect(function () {
-    if (mode === "create" && client && client.assignedProgramId && !programDefaulted) {
-      setSelectedProgramId(client.assignedProgramId);
-      setProgramDefaulted(true);
-    }
-  }, [mode, client, programDefaulted]);
+    if (mode !== "create" || !form || !client || !programs || programDefaulted) return;
+    setProgramDefaulted(true);
+    var id = defaultTemplateId(client, programs);
+    var tpl = programs.filter(function (p) { return p.id === id; })[0];
+    if (!tpl) return;
+    setSelectedProgramId(id);
+    setForm(function (f) { return Object.assign({}, f, { exercises: instantiateProgramExercises(tpl.exercises) }); });
+  }, [mode, form, client, programs, programDefaulted]);
 
   function set(key, value) { setForm(function (f) { var next = Object.assign({}, f); next[key] = value; return next; }); }
 
-  var selectedProgram = (programs || []).filter(function (p) { return p.id === selectedProgramId; })[0];
-  function applyProgram(program) {
-    set("exercises", instantiateProgramExercises(program.exercises));
+  function loadTemplate(id) {
+    var tpl = (programs || []).filter(function (p) { return p.id === id; })[0];
+    if (!tpl) return;
+    setSelectedProgramId(id);
+    setExercisesDirty(false);
+    set("exercises", instantiateProgramExercises(tpl.exercises));
   }
-  function handleApplyClick() {
-    if (!selectedProgram || !form) return;
-    if (form.exercises.length > 0) setConfirmApplyOpen(true);
-    else applyProgram(selectedProgram);
+  // Switching templates after you've edited the loaded exercises would
+  // discard those edits, so ask first; an untouched load swaps silently.
+  function chooseTemplate(id) {
+    if (id === selectedProgramId) return;
+    if (form.exercises.length > 0 && exercisesDirty) { setPendingTemplateId(id); setConfirmApplyOpen(true); return; }
+    loadTemplate(id);
   }
   function confirmApply() {
-    if (selectedProgram) applyProgram(selectedProgram);
+    if (pendingTemplateId) loadTemplate(pendingTemplateId);
+    setPendingTemplateId("");
     setConfirmApplyOpen(false);
   }
+  var pendingTemplate = (programs || []).filter(function (p) { return p.id === pendingTemplateId; })[0];
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!form) return;
+    if (mode === "create" && !selectedProgramId) {
+      setSubmitError("Choose a workout template to start this session.");
+      return;
+    }
     setSaving(true);
     setSubmitError("");
     var p = mode === "create" ? sessionRepository.create(form) : sessionRepository.update(props.sessionId, form);
@@ -1213,23 +1230,32 @@ function SessionFormPage(props) {
           h(MultiSelectChips, { label: "Training type", options: TRAINING_TYPES, value: form.trainingType, onChange: function (v) { set("trainingType", v); } }),
           h(TextField, { label: "Duration (minutes)", type: "number", min: 0, inputMode: "numeric", optional: true, value: form.durationMinutes == null ? "" : form.durationMinutes, onChange: function (e) { set("durationMinutes", e.target.value === "" ? null : Number(e.target.value)); } })
         ),
-        programs && programs.length > 0 && h("fieldset", { className: "form-group" },
-          h("legend", null, "Apply a program"),
-          h("div", { className: "flex-row gap-8 wrap", style: { alignItems: "flex-end" } },
-            h("div", { style: { flex: "1 1 200px", minWidth: 0 } },
-              h(SelectField, {
-                label: "Saved program", value: selectedProgramId,
-                onChange: function (e) { setSelectedProgramId(e.target.value); },
-              },
-                h("option", { value: "" }, "— Select a program —"),
-                programs.map(function (p) { return h("option", { key: p.id, value: p.id }, p.name); })
+        mode === "create" && programs !== undefined && h("fieldset", { className: "form-group" },
+          h("legend", null, "Workout template"),
+          programs.length === 0
+            ? h("div", { className: "card" },
+                h("p", { style: { fontWeight: 700, marginBottom: 4 } }, "No workout templates yet"),
+                h("p", { className: "text-secondary", style: { fontSize: 13.5, marginBottom: 12 } }, "Design a workout template first, then run it for any client."),
+                h(Link, { to: "/programs/new" }, h(Button, { type: "button" }, h(PlusCircleIcon, { width: 18, height: 18 }), "Create a template"))
               )
-            ),
-            h(Button, { type: "button", variant: "secondary", onClick: handleApplyClick, disabled: !selectedProgramId }, "Apply")
-          ),
-          h("p", { className: "text-tertiary", style: { fontSize: 12, marginTop: -8 } }, "Loads that program's exercises into this session so you can adjust them to what actually happened.")
+            : h("div", { className: "exercise-editor" },
+                h("div", { className: "chip-group" },
+                  programs.map(function (p) {
+                    var picked = selectedProgramId === p.id;
+                    return h("button", {
+                      type: "button", key: p.id, className: classNames("chip", picked && "selected"), "aria-pressed": picked,
+                      onClick: function () { chooseTemplate(p.id); },
+                    }, p.name, client && client.assignedProgramId === p.id ? " · Default" : "");
+                  })
+                ),
+                h("p", { className: "text-tertiary", style: { fontSize: 12, marginTop: 10 } }, "Required. Loads the template's exercises so you can adjust them to what actually happened.")
+              )
         ),
-        h("fieldset", { className: "form-group" }, h("legend", null, "Exercises"), h(ExerciseEditor, { exercises: form.exercises, allSessions: allSessions, onChange: function (v) { set("exercises", v); } })),
+        h("fieldset", { className: "form-group" }, h("legend", null, "Exercises"),
+          mode === "create" && !selectedProgramId
+            ? h("p", { className: "text-secondary", style: { fontSize: 13.5 } }, programs && programs.length === 0 ? "Create a template first, then its exercises load here." : "Choose a workout template above to load this session's exercises.")
+            : h(ExerciseEditor, { layout: "carousel", exercises: form.exercises, allSessions: allSessions, onChange: function (v) { setExercisesDirty(true); set("exercises", v); } })
+        ),
         h("fieldset", { className: "form-group" },
           h("legend", null, "Client response"),
           h("div", { className: "form-grid-2" },
@@ -1270,9 +1296,9 @@ function SessionFormPage(props) {
     ),
     h(ConfirmDialog, { open: confirmDeleteOpen, title: "Delete this session?", message: "This permanently removes the session record. This cannot be undone.", onCancel: function () { setConfirmDeleteOpen(false); }, onConfirm: handleDelete }),
     h(ConfirmDialog, {
-      open: confirmApplyOpen, title: "Replace current exercises?",
-      message: "This session already has exercises added. Applying \"" + (selectedProgram ? selectedProgram.name : "this program") + "\" will replace them with the program's exercises.",
-      confirmLabel: "Replace", onCancel: function () { setConfirmApplyOpen(false); }, onConfirm: confirmApply,
+      open: confirmApplyOpen, title: "Switch template?",
+      message: "You've changed this session's exercises. Switching to \"" + (pendingTemplate ? pendingTemplate.name : "this template") + "\" will replace them with the template's exercises.",
+      confirmLabel: "Switch", onCancel: function () { setPendingTemplateId(""); setConfirmApplyOpen(false); }, onConfirm: confirmApply,
     })
   );
 }
@@ -1413,15 +1439,15 @@ function AllGoalsPage() {
 function ProgramsListPage() {
   var programs = useAllPrograms();
   return h(React.Fragment, null,
-    h(PageHeader, { title: "Workout Programs", action: h(Link, { to: "/programs/new", className: "icon-btn", "aria-label": "New program" }, h(PlusCircleIcon, null)) }),
+    h(PageHeader, { title: "Workout Templates", action: h(Link, { to: "/programs/new", className: "icon-btn", "aria-label": "New template" }, h(PlusCircleIcon, null)) }),
     h("div", { className: "page-content" },
-      h("p", { className: "text-secondary", style: { marginBottom: 14, fontSize: 13.5 } }, "Build a workout once, then apply it to any client's session or assign it as their default plan."),
+      h("p", { className: "text-secondary", style: { marginBottom: 14, fontSize: 13.5 } }, "Design a workout once, then assign it to a client as their default or pick it when you start a session."),
       programs === undefined ? null : programs.length === 0
         ? h(EmptyState, {
             icon: h(ClipboardIcon, { width: 36, height: 36 }),
-            title: "No programs yet",
-            message: "Create a reusable program with its exercises and sets planned out in advance.",
-            action: h(Link, { to: "/programs/new" }, h(Button, null, h(PlusCircleIcon, { width: 18, height: 18 }), "Create a program")),
+            title: "No templates yet",
+            message: "Create a reusable workout template with its exercises and sets planned out in advance.",
+            action: h(Link, { to: "/programs/new" }, h(Button, null, h(PlusCircleIcon, { width: 18, height: 18 }), "Create a template")),
           })
         : h("div", { className: "list-card" },
             programs.map(function (p) {
@@ -1465,22 +1491,22 @@ function ProgramFormPage(props) {
     setSubmitError("");
     var p = mode === "create" ? programRepository.create(form) : programRepository.update(programId, form);
     p.then(function () { navigate("/programs"); }).catch(function (err) {
-      setSubmitError(err.message || "Couldn't save this program. Check your connection and try again.");
+      setSubmitError(err.message || "Couldn't save this template. Check your connection and try again.");
     }).finally(function () { setSaving(false); });
   }
   function handleDelete() {
     programRepository.remove(programId).then(function () { navigate("/programs"); });
   }
 
-  if (mode === "edit" && !hydrated) return h(React.Fragment, null, h(PageHeader, { title: "Program", back: true }), h("div", { className: "page-content" }));
+  if (mode === "edit" && !hydrated) return h(React.Fragment, null, h(PageHeader, { title: "Template", back: true }), h("div", { className: "page-content" }));
 
   return h(React.Fragment, null,
-    h(PageHeader, { title: mode === "create" ? "New program" : "Edit program", back: true }),
+    h(PageHeader, { title: mode === "create" ? "New template" : "Edit template", back: true }),
     h("div", { className: "page-content" },
       h("form", { onSubmit: handleSubmit, noValidate: true },
         h("fieldset", { className: "form-group" },
-          h("legend", null, "Program details"),
-          h(TextField, { label: "Program name", value: form.name, onChange: function (e) { set("name", e.target.value); }, placeholder: "e.g. Beginner Reformer Foundations" }),
+          h("legend", null, "Template details"),
+          h(TextField, { label: "Template name", value: form.name, onChange: function (e) { set("name", e.target.value); }, placeholder: "e.g. Beginner Reformer Foundations" }),
           h(TextAreaField, { label: "Description", optional: true, value: form.description, onChange: function (e) { set("description", e.target.value); }, placeholder: "Who is this for, and what is it building toward?" })
         ),
         h("fieldset", { className: "form-group" },
@@ -1489,15 +1515,15 @@ function ProgramFormPage(props) {
         ),
         submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" },
-          h(Button, { type: "submit", className: "btn-block", disabled: saving || !form.name.trim() }, saving ? "Saving…" : mode === "create" ? "Save program" : "Save changes")
+          h(Button, { type: "submit", className: "btn-block", disabled: saving || !form.name.trim() }, saving ? "Saving…" : mode === "create" ? "Save template" : "Save changes")
         ),
         mode === "edit" && h("div", { className: "form-actions" },
-          h(Button, { type: "button", variant: "danger", className: "btn-block", onClick: function () { setConfirmDeleteOpen(true); } }, "Delete program")
+          h(Button, { type: "button", variant: "danger", className: "btn-block", onClick: function () { setConfirmDeleteOpen(true); } }, "Delete template")
         )
       )
     ),
     h(ConfirmDialog, {
-      open: confirmDeleteOpen, title: "Delete this program?",
+      open: confirmDeleteOpen, title: "Delete this template?",
       message: "This removes the saved template. Clients assigned to it and sessions already logged from it are not affected.",
       confirmLabel: "Delete", onCancel: function () { setConfirmDeleteOpen(false); }, onConfirm: handleDelete,
     })
@@ -1586,7 +1612,7 @@ function MorePage() {
   var items = [
     { to: "/sessions", label: "Session History", description: "All sessions across every client", icon: CalendarIcon },
     { to: "/goals", label: "Goals", description: "Goal status across all active clients", icon: TargetIcon },
-    { to: "/programs", label: "Workout Programs", description: "Build once, apply to any client's session", icon: ClipboardIcon },
+    { to: "/programs", label: "Workout Templates", description: "Design once, run for any client", icon: ClipboardIcon },
     { to: "/settings", label: "Settings", description: "Backup, restore, and app data", icon: GearIcon },
   ];
   return h(React.Fragment, null,
