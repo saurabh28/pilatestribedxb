@@ -101,6 +101,45 @@ assert.deepEqual(sandbox.topExerciseNames(sessions, "Cardio", 8), ["Running"]);
 assert.deepEqual(sandbox.topExerciseNames([], "Pilates", 8), []);
 assert.deepEqual(sandbox.topExerciseNames(undefined, "Pilates", 8), []);
 
+// ---- Hold-based exercises (plank, wall sit, Spanish squat) ----
+assert.strictEqual(sandbox.blankExercise().holdBased, false);
+
+// Which categories offer the Reps/Hold switch: those whose sets count reps.
+["Pilates", "Strength", "Functional", "Other"].forEach(function (c) { assert.strictEqual(sandbox.canToggleHold(c), true, c); });
+["Mobility", "Yoga", "Cardio"].forEach(function (c) { assert.strictEqual(sandbox.canToggleHold(c), false, c); });
+
+// effectiveSetFields swaps reps for hold time, keeping order and the rest.
+assert.deepEqual(sandbox.effectiveSetFields({ category: "Strength", holdBased: false }), ["reps", "weight", "restSeconds"]);
+assert.deepEqual(sandbox.effectiveSetFields({ category: "Strength", holdBased: true }), ["holdSeconds", "weight", "restSeconds"]);
+assert.deepEqual(sandbox.effectiveSetFields({ category: "Pilates", holdBased: true }), ["holdSeconds", "restSeconds"]);
+assert.deepEqual(sandbox.effectiveSetFields({ category: "Mobility", holdBased: true }), ["holdSeconds"], "already hold-only");
+assert.deepEqual(sandbox.effectiveSetFields({ category: "Cardio", holdBased: true }), [], "cardio has no sets");
+assert.deepEqual(sandbox.CATEGORY_FIELD_CONFIG.Strength.setFields, ["reps", "weight", "restSeconds"], "shared config is not mutated");
+
+// setVisibility: which of reps / hold to print. Toggle-capable categories
+// show only the active mode (the other mode's numbers stay stored, hidden);
+// Mobility/Yoga keep showing whatever they have, as before.
+assert.deepEqual(sandbox.setVisibility({ category: "Strength", holdBased: false }), { reps: true, hold: false });
+assert.deepEqual(sandbox.setVisibility({ category: "Strength", holdBased: true }), { reps: false, hold: true });
+assert.deepEqual(sandbox.setVisibility({ category: "Mobility", holdBased: false }), { reps: true, hold: true });
+
+// formatSetLine honors visibility; with none given it prints everything (as before).
+var mixedSet = { reps: 12, weight: "", restSeconds: 30, holdSeconds: 45 };
+assert.strictEqual(sandbox.formatSetLine(mixedSet, 0, { reps: false, hold: true }), "Set 1: 45s hold, 30s rest");
+assert.strictEqual(sandbox.formatSetLine(mixedSet, 0, { reps: true, hold: false }), "Set 1: 12 reps, 30s rest");
+assert.strictEqual(sandbox.formatSetLine(mixedSet, 0), "Set 1: 12 reps, 45s hold, 30s rest");
+
+// setsSummary: one-line "3 sets · 45s hold" for collapsed cards.
+function holdEx(vals, extra) {
+  return Object.assign({ category: "Functional", holdBased: true, setDetails: vals.map(function (v, i) { return { id: "s" + i, reps: 10, weight: "", restSeconds: null, holdSeconds: v }; }) }, extra || {});
+}
+assert.strictEqual(sandbox.setsSummary(holdEx([45, 45, 45])), "3 sets · 45s hold");
+assert.strictEqual(sandbox.setsSummary(holdEx([45, 45, 30])), "3 sets · 45/45/30s hold");
+assert.strictEqual(sandbox.setsSummary(holdEx([60])), "1 set · 60s hold");
+assert.strictEqual(sandbox.setsSummary(holdEx([45, 45], { holdBased: false })), "2 sets · 10 reps", "reps mode ignores stored hold");
+assert.strictEqual(sandbox.setsSummary({ category: "Yoga", setDetails: [{ id: "a", reps: null, weight: "", restSeconds: null, holdSeconds: 30 }] }), "1 set · 30s hold");
+assert.strictEqual(sandbox.setsSummary({ category: "Pilates", setDetails: [{ id: "a", reps: null, weight: "", restSeconds: null, holdSeconds: null }] }), "", "nothing entered yet");
+
 // formatStepLine reads a step's quantity correctly for either mode.
 assert.strictEqual(sandbox.formatStepLine({ label: "Bridge & hold", reps: null, holdSeconds: 10 }), "Bridge & hold (10s hold)");
 assert.strictEqual(sandbox.formatStepLine({ label: "Leg raises", reps: 10, holdSeconds: null }), "Leg raises (×10)");

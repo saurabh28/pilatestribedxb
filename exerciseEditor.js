@@ -11,7 +11,7 @@ function blankExercise() {
   return {
     id: generateId(), exerciseName: "", category: "Pilates", setDetails: [blankSetDetail()],
     duration: null, distance: "", intensity: "", side: "N/A", notes: "",
-    springs: [], selectedProps: [], box: false, assistanceLevel: "", steps: [],
+    springs: [], selectedProps: [], box: false, assistanceLevel: "", steps: [], holdBased: false,
   };
 }
 /* A choreographed combo (e.g. "bridge hold -> leg raises -> pulses") broken
@@ -127,6 +127,51 @@ function normalizedProps(ex) {
 }
 function normalizedSteps(ex) {
   return ex.steps || [];
+}
+/* Hold-based exercises (plank, wall sit, Spanish squat) are counted in
+   seconds, not reps. Categories whose sets count reps (Pilates, Strength,
+   Functional, Other) can switch an exercise to "Hold"; Mobility and Yoga
+   already count hold time, and Cardio has no sets. The flag is
+   `ex.holdBased` (absent on older exercises = reps). Switching never
+   deletes numbers: the inactive mode's values stay stored, just hidden. */
+function categoryConfig(category) {
+  return CATEGORY_FIELD_CONFIG[category] || CATEGORY_FIELD_CONFIG.Other;
+}
+function canToggleHold(category) {
+  var c = categoryConfig(category);
+  return !!c.usesSets && c.setFields.indexOf("reps") !== -1;
+}
+/* The per-set input fields to show, with reps swapped for hold time when
+   the exercise is hold-based. Returns a new array; shared config is untouched. */
+function effectiveSetFields(ex) {
+  var c = categoryConfig(ex.category);
+  if (!c.usesSets) return [];
+  return c.setFields.map(function (f) { return f === "reps" && ex.holdBased ? "holdSeconds" : f; });
+}
+/* Which of reps / hold to print in summaries. Where the switch exists only
+   the active mode shows; Mobility/Yoga keep showing whatever they have. */
+function setVisibility(ex) {
+  var toggle = canToggleHold(ex.category);
+  return { reps: !(toggle && ex.holdBased), hold: !toggle || !!ex.holdBased };
+}
+/* One line for a collapsed card: "3 sets · 45s hold" or "3 sets · 12 reps";
+   differing sets list each value ("45/45/30s hold"). */
+function setsSummary(ex) {
+  var sets = normalizedSetDetails(ex);
+  var vis = setVisibility(ex);
+  function values(key) { return sets.map(function (s) { return s[key]; }).filter(function (v) { return v != null; }); }
+  var key = null;
+  if (vis.reps && values("reps").length) key = "reps";
+  else if (vis.hold && values("holdSeconds").length) key = "holdSeconds";
+  var count = sets.length + " set" + (sets.length === 1 ? "" : "s");
+  if (!key) {
+    var anyOther = sets.some(function (s) { return s.weight || s.restSeconds != null; });
+    return anyOther ? count : "";
+  }
+  var vals = values(key);
+  var same = vals.every(function (v) { return v === vals[0]; });
+  var shown = same ? String(vals[0]) : vals.join("/");
+  return count + " · " + shown + (key === "reps" ? " reps" : "s hold");
 }
 /* Up to `limit` of the trainer's most-used exercise names for `category`,
    across every session ever logged (any client) -- shown as tappable
@@ -311,6 +356,7 @@ function ExerciseEditor(props) {
 function ExerciseRow(props) {
   var ex = props.exercise;
   var config = CATEGORY_FIELD_CONFIG[ex.category] || CATEGORY_FIELD_CONFIG.Other;
+  var setFields = effectiveSetFields(ex);
   var idp = "ex-" + ex.id;
   var setDetails = normalizedSetDetails(ex);
   var springs = normalizedSprings(ex);
@@ -365,8 +411,8 @@ function ExerciseRow(props) {
   function summaryLineParts() {
     var parts = [];
     if (steps.length) parts.push(steps.length + "-step sequence");
-    var hasSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
-    if (hasSetData) parts.push(setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"));
+    var setsLine = setsSummary(ex);
+    if (setsLine) parts.push(setsLine);
     if (springs.length) parts.push(springs.map(formatSpringLine).join(", "));
     if (selectedProps.length) parts.push(selectedProps.map(function (p) { return p.name; }).join(", "));
     return parts;
@@ -543,24 +589,31 @@ function ExerciseRow(props) {
         h("span", { className: "exercise-card-title" }, "Sets"),
         h("span", { className: "text-tertiary", style: { fontSize: 11 } }, setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"))
       ),
+      canToggleHold(ex.category) && h("div", { className: "ex-countby" },
+        h("span", { className: "form-label" }, "Count by"),
+        h("div", { className: "chip-group" },
+          h("button", { type: "button", className: classNames("chip", "sm", !ex.holdBased && "selected"), "aria-pressed": !ex.holdBased, onClick: function () { props.onChange({ holdBased: false }); } }, "Reps"),
+          h("button", { type: "button", className: classNames("chip", "sm", ex.holdBased && "selected"), "aria-pressed": !!ex.holdBased, onClick: function () { props.onChange({ holdBased: true }); } }, "Hold (time)")
+        )
+      ),
       isSequence && h("p", { className: "form-hint", style: { marginTop: -4, marginBottom: 8 } }, "Sets = how many times you repeat this whole sequence. Springs/props below are shared across all steps."),
       setDetails.map(function (s, i) {
         var sidp = idp + "-set-" + s.id;
         return h("div", { key: s.id, className: "set-row" },
           h("span", { className: "set-row-index", "aria-hidden": true }, i + 1),
-          config.setFields.indexOf("reps") !== -1 && h("div", { className: "form-field" },
+          setFields.indexOf("reps") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label" }, "Reps"),
             h(Stepper, { value: s.reps, min: 0, max: 50, step: 1, ariaLabel: "Reps", onChange: function (v) { updateSet(s.id, { reps: v }); } })
           ),
-          config.setFields.indexOf("weight") !== -1 && h("div", { className: "form-field" },
-            h("label", { className: "form-label", htmlFor: sidp + "-weight" }, "Weight / resistance"),
-            h("input", { id: sidp + "-weight", className: "input", value: s.weight || "", onChange: setTxt(s.id, "weight"), placeholder: "e.g. 20kg, red band" })
-          ),
-          config.setFields.indexOf("holdSeconds") !== -1 && h("div", { className: "form-field" },
+          setFields.indexOf("holdSeconds") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label" }, "Hold (sec)"),
             h(Stepper, { value: s.holdSeconds, min: 0, max: 300, step: 5, ariaLabel: "Hold seconds", onChange: function (v) { updateSet(s.id, { holdSeconds: v }); } })
           ),
-          config.setFields.indexOf("restSeconds") !== -1 && h("div", { className: "form-field" },
+          setFields.indexOf("weight") !== -1 && h("div", { className: "form-field" },
+            h("label", { className: "form-label", htmlFor: sidp + "-weight" }, "Weight / resistance"),
+            h("input", { id: sidp + "-weight", className: "input", value: s.weight || "", onChange: setTxt(s.id, "weight"), placeholder: "e.g. 20kg, red band" })
+          ),
+          setFields.indexOf("restSeconds") !== -1 && h("div", { className: "form-field" },
             h("label", { className: "form-label" }, "Rest (sec)"),
             h(Stepper, { value: s.restSeconds, min: 0, max: 300, step: 5, ariaLabel: "Rest seconds", onChange: function (v) { updateSet(s.id, { restSeconds: v }); } })
           ),
@@ -663,11 +716,12 @@ function ExerciseRow(props) {
     )
   );
 }
-function formatSetLine(s, i) {
+function formatSetLine(s, i, vis) {
+  vis = vis || { reps: true, hold: true };
   var parts = [];
-  if (s.reps != null) parts.push(s.reps + " reps");
+  if (vis.reps && s.reps != null) parts.push(s.reps + " reps");
   if (s.weight) parts.push(s.weight);
-  if (s.holdSeconds != null) parts.push(s.holdSeconds + "s hold");
+  if (vis.hold && s.holdSeconds != null) parts.push(s.holdSeconds + "s hold");
   if (s.restSeconds != null) parts.push(s.restSeconds + "s rest");
   return "Set " + (i + 1) + (parts.length ? ": " + parts.join(", ") : " — no detail recorded");
 }
@@ -688,7 +742,8 @@ function ExerciseSummary(props) {
   var springs = normalizedSprings(ex);
   var selectedProps = normalizedProps(ex);
   var steps = normalizedSteps(ex);
-  var hasRealSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
+  var vis = setVisibility(ex);
+  var hasRealSetData = setDetails.some(function (s) { return (vis.reps && s.reps != null) || s.weight || s.restSeconds != null || (vis.hold && s.holdSeconds != null); });
   var meta = [];
   if (steps.length) meta.push(steps.length + "-step sequence: " + steps.map(formatStepLine).join(" → "));
   if (ex.distance) meta.push(ex.distance);
@@ -705,7 +760,7 @@ function ExerciseSummary(props) {
       h(Badge, { tone: "neutral" }, ex.category)
     ),
     hasRealSetData && h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 2 } },
-      setDetails.map(function (s, i) { return h("div", { key: s.id || i, className: "text-secondary", style: { fontSize: 12.5 } }, formatSetLine(s, i)); })
+      setDetails.map(function (s, i) { return h("div", { key: s.id || i, className: "text-secondary", style: { fontSize: 12.5 } }, formatSetLine(s, i, vis)); })
     ),
     meta.length > 0 && h("div", { className: "text-secondary", style: { fontSize: 12.5, marginTop: 4 } }, meta.join(" · ")),
     ex.notes && h("div", { className: "text-secondary", style: { fontSize: 12.5, marginTop: 4, fontStyle: "italic" } }, ex.notes)

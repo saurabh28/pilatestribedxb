@@ -429,3 +429,5 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; min-width: 0; 
 .exercise-editor .ex-bulk-btn { min-height: 44px; padding: 0 12px; border: none; background: none; border-radius: 10px; color: var(--ex-brand); font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s ease, transform .12s ease; }
 .exercise-editor .ex-bulk-btn:hover { background: var(--ex-brand-soft); }
 .exercise-editor .ex-bulk-btn:active { transform: scale(.96); }
+.exercise-editor .ex-countby { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.exercise-editor .ex-countby .chip-group { gap: 6px; }
