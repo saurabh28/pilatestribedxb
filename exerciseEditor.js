@@ -66,6 +66,11 @@ function Stepper(props) {
     h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " increase", onClick: inc }, "+")
   );
 }
+/* Ref callback that sizes a textarea to its content, so a long step name
+   wraps onto as many lines as it needs instead of being cut off. */
+function autoGrow(el) {
+  if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
+}
 function blankSpring() {
   return { id: generateId(), color: "", count: null, level: "" };
 }
@@ -179,8 +184,8 @@ function ExerciseEditor(props) {
     props.onChange(next);
   }
 
-  return h("div", null,
-    exercises.length === 0 && h("p", { className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session."),
+  return h("div", { className: "exercise-editor" },
+    exercises.length === 0 && h("p",{ className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session."),
     exercises.map(function (ex, i) { return h(ExerciseRow, { key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); } }); }),
     h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: add }, h(PlusCircleIcon, { width: 18, height: 18 }), "Add exercise")
   );
@@ -240,8 +245,7 @@ function ExerciseRow(props) {
   }
 
   function summaryLineParts() {
-    var parts = [ex.category];
-    if (ex.side && ex.side !== "N/A") parts.push(ex.side);
+    var parts = [];
     if (steps.length) parts.push(steps.length + "-step sequence");
     var hasSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
     if (hasSetData) parts.push(setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"));
@@ -271,21 +275,25 @@ function ExerciseRow(props) {
   var suggestedNames = topExerciseNames(props.allSessions, ex.category, 8);
 
   if (collapsed) {
-    return h("div", { className: "exercise-card" },
-      h("div", { className: "exercise-card-head" },
+    var summaryParts = summaryLineParts();
+    return h("div", { className: "exercise-card", key: "collapsed" },
+      h("div", { className: "exercise-card-head ex-collapsed-head" },
         h("button", { type: "button", className: "exercise-card-summary-toggle", onClick: function () { setCollapsed(false); } },
-          h("span", { className: "exercise-card-title", style: { color: "var(--text)", fontSize: 14.5, fontWeight: 700 } }, ex.exerciseName || "Untitled exercise"),
+          h("span", { className: "ex-collapsed-text" },
+            h("span", { className: "ex-tag" }, ex.category + (ex.side && ex.side !== "N/A" ? " · " + ex.side : "")),
+            h("span", { className: "ex-name" }, ex.exerciseName || "Untitled exercise"),
+            summaryParts.length > 0 && h("span", { className: "ex-summary" }, summaryParts.join(" · "))
+          ),
           h(ChevronRightIcon, { className: "exercise-card-chevron", width: 16, height: 16 })
         ),
         h("button", { type: "button", className: "exercise-remove-btn", "aria-label": "Remove exercise " + (props.index + 1), onClick: props.onRemove }, h(TrashIcon, { width: 15, height: 15 }))
-      ),
-      h("div", { className: "exercise-card-summary-line exercise-card-summary", onClick: function () { setCollapsed(false); } }, summaryLineParts().join(" · "))
+      )
     );
   }
 
-  return h("div", { className: "exercise-card" },
+  return h("div", { className: "exercise-card", key: "expanded" },
     h("div", { className: "exercise-card-head" },
-      h("span", { className: "exercise-card-title" }, "Exercise " + (props.index + 1)),
+      h("span", { className: "ex-tag" }, "Exercise " + (props.index + 1)),
       h("button", { type: "button", className: "exercise-remove-btn", onClick: props.onRemove }, h(TrashIcon, { width: 15, height: 15 }), "Remove")
     ),
     h("div", { className: "exercise-fields-grid", style: { marginBottom: 10 } },
@@ -307,12 +315,17 @@ function ExerciseRow(props) {
           h("button", { type: "button", className: classNames("chip", !isSequence && "selected"), onClick: function () { setSequenceIntent(false); } }, "One movement"),
           h("button", { type: "button", className: classNames("chip", isSequence && "selected"), onClick: function () { setSequenceIntent(true); } }, "A sequence of steps")
         ),
-        isSequence && h("div", null,
+        isSequence && h("div", { className: "ex-section" },
+          h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Sequence · " + steps.length + (steps.length === 1 ? " step" : " steps")),
           steps.map(function (s, i) {
             return h("div", { key: s.id, className: "step-item" },
               h("div", { className: "step-item-row" },
                 h("span", { className: "step-num", "aria-hidden": true }, i + 1),
-                h("input", { className: "step-name-input", value: s.label, onChange: function (e) { updateStep(s.id, { label: e.target.value }); }, placeholder: "e.g. Leg raises" }),
+                h("textarea", {
+                  className: "step-name-input", rows: 1, ref: autoGrow, value: s.label, placeholder: "e.g. Leg raises",
+                  onChange: function (e) { updateStep(s.id, { label: e.target.value }); },
+                  onKeyDown: function (e) { if (e.key === "Enter") e.preventDefault(); },
+                }),
                 h("button", { type: "button", className: "set-remove-btn", "aria-label": "Remove step " + (i + 1), onClick: function () { removeStep(s.id); } }, h(XIcon, { width: 14, height: 14 }))
               ),
               h("div", { className: "step-item-row", style: { marginTop: 8 } },
@@ -382,7 +395,7 @@ function ExerciseRow(props) {
       otherSideAdded ? "Other side added below — edit what's different" : "Also log the other side (adds a copy with side flipped)"
     ),
 
-    config.usesSets && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+    config.usesSets && h("div", { className: "ex-section" },
       h("div", { className: "flex-between", style: { marginBottom: 8 } },
         h("span", { className: "exercise-card-title" }, "Sets"),
         h("span", { className: "text-tertiary", style: { fontSize: 11 } }, setDetails.length + " set" + (setDetails.length === 1 ? "" : "s"))
@@ -414,7 +427,7 @@ function ExerciseRow(props) {
       h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSet }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add set")
     ),
 
-    config.usesSprings && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+    config.usesSprings && h("div", { className: "ex-section" },
       h("div", { className: "flex-between", style: { marginBottom: 8 } }, h("span", { className: "exercise-card-title" }, "Springs")),
       springs.map(function (sp, i) {
         return h("div", { key: sp.id, className: "spring-row-card" },
@@ -461,7 +474,7 @@ function ExerciseRow(props) {
       h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSpring }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add spring")
     ),
 
-    config.usesProps && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+    config.usesProps && h("div", { className: "ex-section" },
       h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Props"),
       h("div", { className: "chip-group", style: { marginBottom: 10 } },
         propOptions.map(function (name) {
@@ -490,7 +503,7 @@ function ExerciseRow(props) {
       )
     ),
 
-    (config.usesAssistance || config.usesBox) && h("div", { style: { borderTop: "1px dashed var(--separator)", paddingTop: 10, marginBottom: 10 } },
+    (config.usesAssistance || config.usesBox) && h("div", { className: "ex-section" },
       h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Pilates detail"),
       h("div", { className: "exercise-fields-grid" },
         config.usesAssistance && h("div", { className: "form-field" },
