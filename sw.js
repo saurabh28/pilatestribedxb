@@ -2,17 +2,19 @@
    (HTML/CSS/JS/icons) plus the pinned CDN library URLs — never Supabase API
    calls, which always go straight to the network so data is never served
    stale or offline-cached by accident. */
-var CACHE_NAME = "cst-shell-v3";
+var CACHE_NAME = "cst-shell-v4";
 var SHELL_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./config.js",
   "./data.js",
+  "./movementScreen.js",
   "./icons.js",
   "./ui.js",
   "./charts.js",
   "./exerciseEditor.js",
+  "./training.js",
   "./app.js",
   "./manifest.json",
   "https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js",

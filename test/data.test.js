@@ -108,4 +108,69 @@ assert.deepEqual(
 );
 assert.deepEqual(sandbox.sessionCountsByTemplate(undefined), {});
 
+// ---- Training calendar helpers (weeks run Monday to Sunday) ----
+assert.strictEqual(sandbox.addDaysIso("2026-09-30", 3), "2026-10-03");
+assert.strictEqual(sandbox.addDaysIso("2026-12-31", 1), "2027-01-01", "crosses a year");
+assert.strictEqual(sandbox.addDaysIso("2026-03-01", -1), "2026-02-28", "crosses a month");
+assert.strictEqual(sandbox.weekStartIso("2026-10-03"), "2026-09-28", "Saturday -> that week's Monday");
+assert.strictEqual(sandbox.weekStartIso("2026-09-28"), "2026-09-28", "Monday stays");
+assert.strictEqual(sandbox.weekStartIso("2026-10-04"), "2026-09-28", "Sunday belongs to the week ending on it");
+assert.strictEqual(sandbox.weekStartIso("2026-10-05"), "2026-10-05", "next Monday starts a new week");
+assert.deepEqual(sandbox.weekDaysIso("2026-09-28"), ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"]);
+assert.match(sandbox.localTodayIso(), /^\d{4}-\d{2}-\d{2}$/);
+
+// scheduleStatus: tracked once a session is linked; otherwise missed if the
+// date has passed, planned if today or later.
+assert.strictEqual(sandbox.scheduleStatus({ date: "2026-09-28", sessionId: "s1" }, "2026-10-03"), "tracked");
+assert.strictEqual(sandbox.scheduleStatus({ date: "2026-09-28", sessionId: null }, "2026-10-03"), "missed");
+assert.strictEqual(sandbox.scheduleStatus({ date: "2026-10-03", sessionId: null }, "2026-10-03"), "planned", "today is still planned");
+assert.strictEqual(sandbox.scheduleStatus({ date: "2026-10-05", sessionId: null }, "2026-10-03"), "planned");
+
+// trainingStats, with "today" = Saturday 2026-10-03 (week 09-28..10-04).
+const monMissed = { date: "2026-09-28", sessionId: null };
+assert.deepEqual(sandbox.trainingStats([monMissed], "2026-10-03"), {
+  last7: { assigned: 1, tracked: 0 }, thisWeek: { assigned: 1, tracked: 0 }, nextWeek: { assigned: 0 },
+});
+const stats2 = sandbox.trainingStats([
+  monMissed,
+  { date: "2026-09-30", sessionId: "s1" },
+  { date: "2026-10-06", sessionId: null },
+  { date: "2026-09-20", sessionId: "s0" },
+], "2026-10-03");
+assert.deepEqual(stats2.last7, { assigned: 2, tracked: 1 }, "09-27..10-03 only");
+assert.deepEqual(stats2.thisWeek, { assigned: 2, tracked: 1 });
+assert.deepEqual(stats2.nextWeek, { assigned: 1 });
+assert.deepEqual(sandbox.trainingStats(undefined, "2026-10-03").thisWeek, { assigned: 0, tracked: 0 });
+
+// Scheduled-workout row mapping.
+const sched = sandbox.rowToScheduled({ id: "w1", client_id: "c1", program_id: "t1", program_name: "Lower Body", scheduled_date: "2026-09-28", session_id: null, created_at: "2026-09-27T10:00:00Z" });
+assert.strictEqual(sched.clientId, "c1");
+assert.strictEqual(sched.programId, "t1");
+assert.strictEqual(sched.programName, "Lower Body");
+assert.strictEqual(sched.date, "2026-09-28");
+assert.strictEqual(sched.sessionId, null);
+const schedRow = sandbox.scheduledToRow({ id: "w1", clientId: "c1", programId: "t1", programName: "Lower Body", date: "2026-09-28" });
+assert.strictEqual(schedRow.client_id, "c1");
+assert.strictEqual(schedRow.program_id, "t1");
+assert.strictEqual(schedRow.program_name, "Lower Body");
+assert.strictEqual(schedRow.scheduled_date, "2026-09-28");
+assert.strictEqual("session_id" in schedRow, false, "absent field is not written");
+
+// Detecting "the scheduled_workouts table hasn't been created yet".
+assert.strictEqual(sandbox.isMissingScheduleTable({ code: "PGRST205", message: "x" }), true);
+assert.strictEqual(sandbox.isMissingScheduleTable({ code: "42P01", message: "relation does not exist" }), true);
+assert.strictEqual(sandbox.isMissingScheduleTable({ message: "Could not find the table 'public.scheduled_workouts' in the schema cache" }), true);
+assert.strictEqual(sandbox.isMissingScheduleTable({ code: "42501", message: "permission denied for table scheduled_workouts" }), false);
+assert.strictEqual(sandbox.isMissingScheduleTable(null), false);
+
+// resolveSessionStart: a planned day's template and date win over the
+// client's default template; a deleted planned template falls back.
+const startTpls = [{ id: "t1" }, { id: "t2" }];
+const startClient = { assignedProgramId: "t1" };
+assert.deepEqual(sandbox.resolveSessionStart(startClient, startTpls, null), { templateId: "t1", date: null }, "no plan -> default");
+assert.deepEqual(sandbox.resolveSessionStart(startClient, startTpls, { programId: "t2", date: "2026-09-29" }), { templateId: "t2", date: "2026-09-29" }, "plan wins");
+assert.deepEqual(sandbox.resolveSessionStart(startClient, startTpls, { programId: "gone", date: "2026-09-29" }), { templateId: "t1", date: "2026-09-29" }, "deleted plan template -> default, still that date");
+assert.deepEqual(sandbox.resolveSessionStart({ assignedProgramId: null }, startTpls, { programId: null, date: "2026-09-30" }), { templateId: "", date: "2026-09-30" });
+assert.deepEqual(sandbox.resolveSessionStart(startClient, [], null), { templateId: "", date: null });
+
 console.log("data.test.js: all assertions passed");

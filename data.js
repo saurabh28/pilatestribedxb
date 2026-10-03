@@ -243,6 +243,88 @@ function sessionToRow(s) {
   return row;
 }
 
+/* ---------------------------------------------------------------------- */
+/* Training calendar: workouts assigned to a client on specific days.       */
+/* Dates are plain "YYYY-MM-DD" strings; weeks run Monday to Sunday.        */
+/* ---------------------------------------------------------------------- */
+
+/* Today in the user's own timezone (todayIso() above is UTC, which is the
+   wrong calendar day for a few hours each night in Dubai). */
+function localTodayIso() {
+  var d = new Date();
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+function addDaysIso(iso, n) {
+  var p = iso.split("-").map(Number);
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10);
+}
+function weekStartIso(iso) {
+  var p = iso.split("-").map(Number);
+  var dow = new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay(); // 0 = Sunday
+  return addDaysIso(iso, -((dow + 6) % 7));
+}
+function weekDaysIso(startIso) {
+  return [0, 1, 2, 3, 4, 5, 6].map(function (i) { return addDaysIso(startIso, i); });
+}
+/* tracked = a session was logged from it; otherwise missed once its date
+   has passed, planned today or later. */
+function scheduleStatus(item, todayIso) {
+  if (item.sessionId) return "tracked";
+  return item.date < todayIso ? "missed" : "planned";
+}
+/* The three tiles above the calendar: the 7 days ending today, this week,
+   and next week (next week only counts what's assigned). */
+function trainingStats(items, todayIso) {
+  var list = items || [];
+  function count(from, to) {
+    var inRange = list.filter(function (i) { return i.date >= from && i.date <= to; });
+    return { assigned: inRange.length, tracked: inRange.filter(function (i) { return !!i.sessionId; }).length };
+  }
+  var weekStart = weekStartIso(todayIso);
+  var nextStart = addDaysIso(weekStart, 7);
+  return {
+    last7: count(addDaysIso(todayIso, -6), todayIso),
+    thisWeek: count(weekStart, addDaysIso(weekStart, 6)),
+    nextWeek: { assigned: count(nextStart, addDaysIso(nextStart, 6)).assigned },
+  };
+}
+/* What a new session starts with: the planned day's template and date if it
+   was started from the calendar (and that template still exists), otherwise
+   the client's default template and no preset date. */
+function resolveSessionStart(client, templates, scheduledItem) {
+  var plannedId = scheduledItem && scheduledItem.programId &&
+    (templates || []).some(function (t) { return t.id === scheduledItem.programId; }) ? scheduledItem.programId : "";
+  return {
+    templateId: plannedId || defaultTemplateId(client, templates),
+    date: scheduledItem ? scheduledItem.date : null,
+  };
+}
+function rowToScheduled(r) {
+  if (!r) return r;
+  return {
+    id: r.id, clientId: r.client_id, programId: r.program_id || null, programName: r.program_name || "",
+    date: r.scheduled_date, sessionId: r.session_id || null, createdAt: r.created_at,
+  };
+}
+function scheduledToRow(s) {
+  var row = {};
+  if ("id" in s) row.id = s.id;
+  if ("clientId" in s) row.client_id = s.clientId;
+  if ("programId" in s) row.program_id = s.programId || null;
+  if ("programName" in s) row.program_name = s.programName || "";
+  if ("date" in s) row.scheduled_date = s.date;
+  if ("sessionId" in s) row.session_id = s.sessionId || null;
+  return row;
+}
+/* The scheduled_workouts table is created by a SQL snippet the owner runs by
+   hand. Until then reads should show a friendly notice, not an error. */
+function isMissingScheduleTable(err) {
+  if (!err) return false;
+  if (err.code === "PGRST205" || err.code === "42P01") return true;
+  return /scheduled_workouts/i.test(String(err.message || "")) && /(could not find|does not exist)/i.test(String(err.message || ""));
+}
+
 function rowToGoal(r) {
   if (!r) return r;
   return {
@@ -426,6 +508,48 @@ var goalRepository = {
       });
   },
   remove: function (id) { return supabase.from("goals").delete().eq("id", id).then(checkError).then(afterWrite); },
+};
+
+var scheduledWorkoutRepository = {
+  /* An array of assignments, or null if the table hasn't been created yet. */
+  listByClient: function (clientId) {
+    return supabase.from("scheduled_workouts").select("*").eq("client_id", clientId).order("scheduled_date", { ascending: true })
+      .then(function (res) {
+        if (res.error) {
+          if (isMissingScheduleTable(res.error)) return null;
+          throw res.error;
+        }
+        return (res.data || []).map(rowToScheduled);
+      });
+  },
+  get: function (id) {
+    if (!id) return Promise.resolve(undefined);
+    return supabase.from("scheduled_workouts").select("*").eq("id", id).maybeSingle().then(function (res) {
+      if (res.error) {
+        if (isMissingScheduleTable(res.error)) return undefined;
+        throw res.error;
+      }
+      return rowToScheduled(res.data);
+    });
+  },
+  /* Assign one or more templates (each a { clientId, programId, programName, date }). */
+  createMany: function (inputs) {
+    var rows = inputs.map(function (i) { return scheduledToRow(Object.assign({ id: generateId() }, i)); });
+    return supabase.from("scheduled_workouts").insert(rows).select().then(function (res) {
+      if (res.error) {
+        if (isMissingScheduleTable(res.error)) {
+          throw new Error("The training calendar needs a one-time database update before you can assign workouts. Run the scheduled_workouts block from supabase/schema.sql in the Supabase SQL editor.");
+        }
+        throw res.error;
+      }
+      return (res.data || []).map(rowToScheduled);
+    }).then(afterWrite);
+  },
+  /* Marks an assignment as tracked by pointing it at the session logged from it. */
+  linkSession: function (id, sessionId) {
+    return supabase.from("scheduled_workouts").update({ session_id: sessionId }).eq("id", id).then(checkError).then(afterWrite);
+  },
+  remove: function (id) { return supabase.from("scheduled_workouts").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
 var programRepository = {

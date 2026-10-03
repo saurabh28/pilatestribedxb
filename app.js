@@ -1092,9 +1092,10 @@ function ClientProfilePage(props) {
       client.currentGoal && h("div", { className: "card" }, h("div", { className: "section-label", style: { marginBottom: 4 } }, "Current goal"), h("p", { style: { margin: 0, fontSize: 14.5 } }, client.currentGoal)),
       h(TabBar, {
         value: tab, onChange: function (t) { setQueryParam("tab", t); },
-        tabs: [{ value: "overview", label: "Overview" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
+        tabs: [{ value: "overview", label: "Overview" }, { value: "training", label: "Training" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
       }),
       tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram }),
+      tab === "training" && h(TrainingTab, { client: client }),
       tab === "sessions" && h(SessionsTab, { client: client, sessions: sessions }),
       tab === "goals" && h(GoalsTab, { client: client, goals: goals || [] }),
       tab === "progress" && h(ProgressTab, { client: client, sessions: sessions, goals: goals || [], bodyScores: bodyScores || [] }),
@@ -1158,15 +1159,35 @@ function SessionFormPage(props) {
   // A new session starts from the client's default workout template: once
   // the form, client and template list have all loaded, pick it and load
   // its exercises. Runs once; the coach can switch templates afterwards.
+  // Started from a planned day on the Training calendar (?scheduled=<id>)?
+  // Fetch that assignment first, so its template and date win over the default.
+  var route = useRoute();
+  var scheduledId = mode === "create" ? (route.query.scheduled || "") : "";
+  var _sc = useState(null), scheduledItem = _sc[0], setScheduledItem = _sc[1];
+  var _sl = useState(false), scheduledLoaded = _sl[0], setScheduledLoaded = _sl[1];
+  useEffect(function () {
+    if (!scheduledId || scheduledLoaded) return;
+    scheduledWorkoutRepository.get(scheduledId)
+      .then(function (item) { setScheduledItem(item || null); })
+      .catch(function (err) { console.error("Couldn't load the planned workout", err); })
+      .finally(function () { setScheduledLoaded(true); });
+  }, [scheduledId, scheduledLoaded]);
+
   useEffect(function () {
     if (mode !== "create" || !form || !client || !programs || programDefaulted) return;
+    if (scheduledId && !scheduledLoaded) return;
     setProgramDefaulted(true);
-    var id = defaultTemplateId(client, programs);
-    var tpl = programs.filter(function (p) { return p.id === id; })[0];
-    if (!tpl) return;
-    setSelectedProgramId(id);
-    setForm(function (f) { return Object.assign({}, f, { exercises: instantiateProgramExercises(tpl.exercises) }); });
-  }, [mode, form, client, programs, programDefaulted]);
+    var start = resolveSessionStart(client, programs, scheduledItem);
+    var tpl = programs.filter(function (p) { return p.id === start.templateId; })[0];
+    if (!tpl && !start.date) return;
+    if (tpl) setSelectedProgramId(tpl.id);
+    setForm(function (f) {
+      var patch = {};
+      if (start.date) patch.date = start.date;
+      if (tpl) patch.exercises = instantiateProgramExercises(tpl.exercises);
+      return Object.assign({}, f, patch);
+    });
+  }, [mode, form, client, programs, programDefaulted, scheduledId, scheduledLoaded, scheduledItem]);
 
   function set(key, value) { setForm(function (f) { var next = Object.assign({}, f); next[key] = value; return next; }); }
 
@@ -1209,7 +1230,12 @@ function SessionFormPage(props) {
       var scoreInputs = trackedAreas.filter(function (a) { return bodyScoreDraft[a] != null && bodyScoreDraft[a] !== ""; })
         .map(function (a) { return { clientId: form.clientId, area: a, score: Number(bodyScoreDraft[a]), source: "session", sessionId: sessionId, recordedAt: form.date, notes: "" }; });
       var scoreSave = scoreInputs.length ? bodyScoreRepository.createMany(scoreInputs) : Promise.resolve();
-      return scoreSave.then(function () { navigate("/sessions/" + sessionId); });
+      return scoreSave.then(function () {
+        // Logged from a planned day: point that assignment at this session, which marks it Tracked.
+        if (mode !== "create" || !scheduledItem || scheduledItem.sessionId) return null;
+        return scheduledWorkoutRepository.linkSession(scheduledItem.id, sessionId)
+          .catch(function (err) { console.error("Couldn't mark the planned workout as tracked", err); });
+      }).then(function () { navigate("/sessions/" + sessionId); });
     }).catch(function (err) {
       setSubmitError(err.message || "Couldn't save this session. Check your connection and try again.");
     }).finally(function () { setSaving(false); });

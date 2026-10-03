@@ -234,8 +234,35 @@ create policy "movement_screens_owner_all" on movement_screens
 
 grant select, insert, update, delete on public.movement_screens to anon, authenticated;
 
+-- ----------------------------------------------------------------------------
+-- scheduled_workouts — the training calendar. One row per template assigned to
+-- a client on a day (several per day allowed). session_id is filled in when a
+-- session is logged from it, which is what makes it "tracked"; deleting that
+-- session clears the link (set null). program_name keeps what was assigned
+-- readable if the template is later deleted.
+-- ----------------------------------------------------------------------------
+create table if not exists scheduled_workouts (
+  id uuid primary key default gen_random_uuid(),
+  trainer_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  client_id uuid not null references clients(id) on delete cascade,
+  program_id uuid references programs(id) on delete set null,
+  program_name text not null default '',
+  scheduled_date date not null,
+  session_id uuid references sessions(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists scheduled_workouts_client_date_idx on scheduled_workouts (client_id, scheduled_date);
+create index if not exists scheduled_workouts_trainer_idx on scheduled_workouts (trainer_id);
+
+alter table scheduled_workouts enable row level security;
+drop policy if exists "scheduled_workouts_owner_all" on scheduled_workouts;
+create policy "scheduled_workouts_owner_all" on scheduled_workouts
+  for all using (trainer_id = auth.uid()) with check (trainer_id = auth.uid());
+
+grant select, insert, update, delete on public.scheduled_workouts to anon, authenticated;
+
 -- ============================================================================
--- Done. Verify in Table Editor: you should see 6 tables (programs, clients,
--- sessions, goals, body_scores, movement_screens), each with a shield icon
--- indicating RLS is on.
+-- Done. Verify in Table Editor: you should see 7 tables (programs, clients,
+-- sessions, goals, body_scores, movement_screens, scheduled_workouts), each
+-- with a shield icon indicating RLS is on.
 -- ============================================================================
