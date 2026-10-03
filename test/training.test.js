@@ -66,4 +66,27 @@ const sorted = sandbox.sortScheduled([
 ]);
 assert.deepEqual(sorted.map(function (i) { return i.id; }), ["0", "1", "2"]);
 
+// workoutsSummary: the text on the Overview's "Workouts" card (today = Sat 2026-10-03).
+function plainObj(x) { return JSON.parse(JSON.stringify(x)); }
+const T = "2026-10-03";
+assert.deepEqual(plainObj(sandbox.workoutsSummary(null, T)), { kind: "unavailable", text: "Set up the training calendar to assign workouts.", next: null });
+assert.deepEqual(plainObj(sandbox.workoutsSummary([], T)), { kind: "empty", text: "No workout assigned this week", next: null });
+const active = plainObj(sandbox.workoutsSummary([
+  { id: "a", date: "2026-09-28", sessionId: "s1", programName: "Lower Body", createdAt: "1" },
+  { id: "b", date: "2026-09-30", sessionId: null, programName: "Core", createdAt: "2" },
+  { id: "c", date: "2026-10-05", sessionId: null, programName: "Full Body", createdAt: "3" },
+  { id: "d", date: "2026-10-04", sessionId: null, programName: "Mobility", createdAt: "4" },
+], T));
+assert.strictEqual(active.kind, "active");
+assert.strictEqual(active.text, "1 of 3 tracked this week", "Mon tracked, Wed missed, Sun planned = 1 of 3");
+assert.deepEqual(active.next, { name: "Mobility", date: "2026-10-04" }, "earliest upcoming untracked, not the missed one");
+// Only future work assigned: still says what's next.
+const onlyNext = plainObj(sandbox.workoutsSummary([{ id: "x", date: "2026-10-06", sessionId: null, programName: "Core", createdAt: "1" }], T));
+assert.strictEqual(onlyNext.text, "Nothing assigned this week");
+assert.deepEqual(onlyNext.next, { name: "Core", date: "2026-10-06" });
+// Everything done, nothing coming up.
+const allDone = plainObj(sandbox.workoutsSummary([{ id: "x", date: "2026-10-01", sessionId: "s", programName: "Core", createdAt: "1" }], T));
+assert.strictEqual(allDone.text, "1 of 1 tracked this week");
+assert.strictEqual(allDone.next, null);
+
 console.log("training.test.js: all assertions passed");

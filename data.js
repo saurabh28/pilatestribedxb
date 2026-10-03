@@ -300,6 +300,39 @@ function resolveSessionStart(client, templates, scheduledItem) {
     date: scheduledItem ? scheduledItem.date : null,
   };
 }
+/* The four cards under "Metrics" on a client's Overview. Each is
+   { key, label, value (string or null when there's no data), date, tone }. */
+function overviewMetrics(sessions, bodyScores, movementScreens) {
+  function latestBy(list, dateKey, hasValue) {
+    var best = null;
+    (list || []).forEach(function (item) {
+      if (!hasValue(item)) return;
+      if (!best || item[dateKey] > best[dateKey] ||
+          (item[dateKey] === best[dateKey] && (item.sessionNumber || 0) > (best.sessionNumber || 0))) best = item;
+    });
+    return best;
+  }
+  var pain = latestBy(sessions, "date", function (s) { return s.painScore != null; });
+  var rpe = latestBy(sessions, "date", function (s) { return s.rpe != null; });
+  var screen = latestBy(movementScreens, "screenedAt", function (m) { return m.readinessScore != null; });
+
+  var latestByArea = latestScoresByArea(bodyScores || []);
+  var areas = Object.keys(latestByArea);
+  var bodyScore = { key: "bodyScore", label: "Body score", value: null, date: null, tone: null };
+  if (areas.length) {
+    var avg = areas.reduce(function (sum, a) { return sum + latestByArea[a].score; }, 0) / areas.length;
+    bodyScore.value = String(Math.round(avg * 10) / 10) + "/10";
+    bodyScore.date = areas.reduce(function (d, a) { return latestByArea[a].recordedAt > d ? latestByArea[a].recordedAt : d; }, "");
+    bodyScore.detail = areas.length + (areas.length === 1 ? " area" : " areas");
+  }
+  var resultTone = { green: "success", amber: "warning", red: "danger" };
+  return [
+    { key: "pain", label: "Pain", value: pain ? pain.painScore + "/10" : null, date: pain ? pain.date : null, tone: pain && pain.painScore >= 5 ? "danger" : null },
+    { key: "rpe", label: "RPE", value: rpe ? rpe.rpe + "/10" : null, date: rpe ? rpe.date : null, tone: null },
+    bodyScore,
+    { key: "readiness", label: "Readiness", value: screen ? Math.round(screen.readinessScore) + "%" : null, date: screen ? screen.screenedAt : null, tone: screen ? (resultTone[screen.overallResult] || null) : null },
+  ];
+}
 function rowToScheduled(r) {
   if (!r) return r;
   return {

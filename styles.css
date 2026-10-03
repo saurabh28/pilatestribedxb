@@ -499,3 +499,50 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; min-width: 0; 
 .ex-theme .btn-primary { background: var(--ex-fill); color: var(--ex-on-fill); }
 .ex-theme .btn-secondary { background: var(--ex-brand-soft); color: var(--ex-ink); }
 .ex-theme .btn-primary:disabled { opacity: .4; }
+
+/* ---------------------------------------------------------------------- */
+/* Client profile: sticky tabs + Overview sections (matte tokens)          */
+/* ---------------------------------------------------------------------- */
+:root { --header-h: calc(69px + env(safe-area-inset-top)); }
+.profile-tabs { position: sticky; top: var(--header-h); z-index: 15; background: var(--bg); margin: 0 -16px; padding: 4px 16px 8px; }
+.profile-tabs .tabbar { margin-bottom: 0; }
+.profile-meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+
+.ov-section { margin-bottom: 28px; }
+.ov-head { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 8px; }
+.ov-title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: var(--ex-ink); margin: 0; }
+.ov-link { min-height: 44px; padding: 0 4px; background: none; border: none; color: var(--ex-brand); font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.ov-card { display: block; width: 100%; text-align: left; background: var(--ex-surface); border: 1px solid var(--ex-hair); border-radius: 18px; box-shadow: var(--ex-shadow); padding: 16px; margin-bottom: 12px; font-family: inherit; color: inherit; text-decoration: none; }
+a.ov-card, button.ov-card { cursor: pointer; transition: transform .12s ease; }
+a.ov-card:active, button.ov-card:active { transform: scale(.985); }
+.ov-row { display: flex; align-items: center; gap: 14px; }
+.ov-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--ex-brand-soft); color: var(--ex-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ov-body { min-width: 0; flex: 1; }
+.ov-label { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ex-brand); }
+.ov-text { font-size: 14.5px; color: var(--ex-muted); margin-top: 3px; }
+.ov-text strong { color: var(--ex-ink); font-weight: 600; }
+.ov-chevron { color: var(--ex-muted); flex-shrink: 0; }
+
+.ov-tiles { display: grid; grid-template-columns: 1fr 1fr; padding: 0; overflow: hidden; }
+.ov-tile { padding: 16px; }
+.ov-tile + .ov-tile { border-left: 1px solid var(--ex-hair); }
+.ov-tile-value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--ex-ink); font-variant-numeric: tabular-nums; }
+.ov-tile-label { font-size: 13px; color: var(--ex-muted); margin-top: 2px; }
+.ov-tiles-foot { grid-column: 1 / -1; border-top: 1px solid var(--ex-hair); padding: 12px 16px; font-size: 13px; color: var(--ex-muted); }
+.ov-cta { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; background: var(--ex-fill); color: var(--ex-on-fill); border: none; border-radius: 16px; font-size: 16px; font-weight: 600; font-family: inherit; text-decoration: none; cursor: pointer; transition: transform .12s ease; }
+.ov-cta:active { transform: scale(.985); }
+
+.ov-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ov-metrics .ov-card { margin-bottom: 0; }
+.ov-metric-value { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--ex-ink); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ov-metric-value.none { font-size: 15px; font-weight: 500; color: var(--ex-muted); letter-spacing: 0; padding: 5px 0; }
+.ov-metric-value.success { color: var(--ex-brand); }
+.ov-metric-value.warning { color: #b7791f; }
+.ov-metric-value.danger { color: var(--ex-danger); }
+.ov-metric-sub { font-size: 12.5px; color: var(--ex-muted); margin-top: 3px; }
+
+.ov-detail-label { font-size: 12px; font-weight: 700; color: var(--ex-muted); margin-bottom: 2px; }
+.ov-details .ov-card { margin-bottom: 12px; }
+.ov-details .ov-card-title { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ex-brand); margin-bottom: 12px; }
+.profile-tabs .tabbar { scrollbar-width: none; }
+.profile-tabs .tabbar::-webkit-scrollbar { display: none; }

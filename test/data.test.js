@@ -173,4 +173,40 @@ assert.deepEqual(sandbox.resolveSessionStart(startClient, startTpls, { programId
 assert.deepEqual(sandbox.resolveSessionStart({ assignedProgramId: null }, startTpls, { programId: null, date: "2026-09-30" }), { templateId: "", date: "2026-09-30" });
 assert.deepEqual(sandbox.resolveSessionStart(startClient, [], null), { templateId: "", date: null });
 
+// overviewMetrics: the four cards under "Metrics" on a client's Overview.
+function plain(x) { return JSON.parse(JSON.stringify(x)); }
+const empty = plain(sandbox.overviewMetrics([], [], []));
+assert.deepEqual(empty.map(function (m) { return m.key; }), ["pain", "rpe", "bodyScore", "readiness"]);
+assert.deepEqual(empty.map(function (m) { return m.value; }), [null, null, null, null], "no data -> no values");
+assert.deepEqual(plain(sandbox.overviewMetrics(undefined, undefined, undefined)).map(function (m) { return m.value; }), [null, null, null, null]);
+
+const metrics = plain(sandbox.overviewMetrics(
+  [
+    { date: "2026-09-20", sessionNumber: 1, painScore: 2, rpe: 6 },
+    { date: "2026-09-28", sessionNumber: 2, painScore: null, rpe: 7 },
+  ],
+  [
+    { area: "Core", score: 5, recordedAt: "2026-09-01" },
+    { area: "Core", score: 8, recordedAt: "2026-09-20" },
+    { area: "Hips", score: 6, recordedAt: "2026-09-10" },
+  ],
+  [
+    { screenedAt: "2026-08-01", readinessScore: 60, overallResult: "amber" },
+    { screenedAt: "2026-09-15", readinessScore: 82.4, overallResult: "green" },
+  ]
+));
+const byKey = {};
+metrics.forEach(function (m) { byKey[m.key] = m; });
+assert.deepEqual(byKey.pain, { key: "pain", label: "Pain", value: "2/10", date: "2026-09-20", tone: null }, "latest session that has a pain score");
+assert.deepEqual(byKey.rpe, { key: "rpe", label: "RPE", value: "7/10", date: "2026-09-28", tone: null });
+assert.strictEqual(byKey.bodyScore.value, "7/10", "average of each area's latest score: (8+6)/2");
+assert.strictEqual(byKey.bodyScore.date, "2026-09-20");
+assert.strictEqual(byKey.bodyScore.detail, "2 areas");
+assert.strictEqual(byKey.readiness.value, "82%");
+assert.strictEqual(byKey.readiness.date, "2026-09-15");
+assert.strictEqual(byKey.readiness.tone, "success", "green result");
+// A high pain score is flagged; a .5 average keeps its decimal.
+assert.strictEqual(plain(sandbox.overviewMetrics([{ date: "2026-09-28", sessionNumber: 1, painScore: 6, rpe: null }], [], []))[0].tone, "danger");
+assert.strictEqual(plain(sandbox.overviewMetrics([], [{ area: "Core", score: 7, recordedAt: "2026-09-01" }, { area: "Hips", score: 8, recordedAt: "2026-09-01" }], []))[2].value, "7.5/10");
+
 console.log("data.test.js: all assertions passed");

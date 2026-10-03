@@ -60,7 +60,15 @@ function navigate(hash) { window.location.hash = hash; }
 function useRoute() {
   var _s = useState(parseHash()), route = _s[0], setRoute = _s[1];
   useEffect(function () {
-    function onChange() { setRoute(parseHash()); window.scrollTo(0, 0); }
+    // A new page starts at the top, but switching a tab (?tab=...) or any
+    // other query-only change stays put, so you keep reading where you were.
+    var lastPath = parseHash().path;
+    function onChange() {
+      var next = parseHash();
+      setRoute(next);
+      if (next.path !== lastPath) window.scrollTo(0, 0);
+      lastPath = next.path;
+    }
     window.addEventListener("hashchange", onChange);
     return function () { window.removeEventListener("hashchange", onChange); };
   }, []);
@@ -442,43 +450,126 @@ function Field(props) {
     h("div", { style: { fontSize: 14.5, whiteSpace: "pre-wrap" } }, props.value && props.value.trim ? (props.value.trim() ? props.value : "—") : (props.value || "—"))
   );
 }
+function OverviewSection(props) {
+  return h("section", { className: "ov-section" },
+    h("div", { className: "ov-head" },
+      h("h2", { className: "ov-title" }, props.title),
+      props.linkLabel && h("button", { type: "button", className: "ov-link", onClick: props.onLink }, props.linkLabel)
+    ),
+    props.children
+  );
+}
+function formatShortDay(iso, today) {
+  if (iso === today) return "Today";
+  var d = dayParts(iso);
+  return d.dow + " " + d.num + " " + d.month;
+}
 function OverviewTab(props) {
   var client = props.client;
   var program = props.assignedProgram;
+  var stats = props.stats;
+  var scheduled = useScheduledForClient(client.id);
+  var today = localTodayIso();
   var age = calculateAge(client.dateOfBirth);
-  return h("div", { className: "stack" },
-    h("section", null, h(SectionLabel, null, "Personal details"), h(Card, null,
-      h(Field, { label: "Gender", value: client.gender }),
-      h(Field, { label: "Date of birth", value: client.dateOfBirth ? formatDate(client.dateOfBirth) + (age != null ? " (" + age + " yrs)" : "") : null }),
-      h(Field, { label: "Preferred training", value: client.preferredTraining.join(", ") })
-    )),
-    h("section", null, h(SectionLabel, null, "Default workout template"), h(Card, null,
+  var summary = scheduled === undefined ? null : workoutsSummary(scheduled, today);
+  var metrics = overviewMetrics(props.sessions, props.bodyScores, props.movementScreens);
+  function goTab(tab) { return function () { setQueryParam("tab", tab); }; }
+
+  return h("div", { className: "ex-theme" },
+    h(OverviewSection, { title: "Training", linkLabel: "Calendar", onLink: goTab("training") },
+      h("button", { type: "button", className: "ov-card ov-row", onClick: goTab("training") },
+        h("span", { className: "ov-icon" }, h(ClipboardIcon, { width: 20, height: 20 })),
+        h("span", { className: "ov-body" },
+          h("div", { className: "ov-label" }, "Workouts"),
+          h("div", { className: "ov-text" }, summary ? summary.text : "Loading…"),
+          summary && summary.next && h("div", { className: "ov-text" }, "Next: ", h("strong", null, summary.next.name), " · " + formatShortDay(summary.next.date, today))
+        ),
+        h(ChevronRightIcon, { className: "ov-chevron", width: 18, height: 18 })
+      ),
       client.assignedProgramId && program
-        ? h("div", { className: "flex-between" },
-            h("div", { style: { minWidth: 0 } },
-              h("div", { style: { fontWeight: 700, fontSize: 14.5 } }, program.name),
-              program.description && h("div", { className: "text-secondary", style: { fontSize: 12.5, marginTop: 2 } }, program.description),
-              h("div", { className: "text-tertiary", style: { fontSize: 11.5, marginTop: 4 } }, program.exercises.length + " exercise" + (program.exercises.length === 1 ? "" : "s"))
+        ? h(Link, { to: "/programs/" + program.id + "/edit", className: "ov-card ov-row" },
+            h("span", { className: "ov-icon" }, h(TargetIcon, { width: 20, height: 20 })),
+            h("span", { className: "ov-body" },
+              h("div", { className: "ov-label" }, "Default template"),
+              h("div", { className: "ov-text" }, h("strong", null, program.name), " · " + exerciseCountLabel((program.exercises || []).length))
             ),
-            h(Link, { to: "/programs/" + program.id + "/edit" }, h(Button, { variant: "text", size: "sm" }, "View"))
+            h(ChevronRightIcon, { className: "ov-chevron", width: 18, height: 18 })
           )
-        : h("p", { className: "text-secondary", style: { margin: 0, fontSize: 13.5 } },
-            "No default template. ", h(Link, { to: "/clients/" + client.id + "/edit" }, "Pick one"), " so new sessions start from it."
+        : h(Link, { to: "/clients/" + client.id + "/edit", className: "ov-card ov-row" },
+            h("span", { className: "ov-icon" }, h(TargetIcon, { width: 20, height: 20 })),
+            h("span", { className: "ov-body" },
+              h("div", { className: "ov-label" }, "Default template"),
+              h("div", { className: "ov-text" }, "None yet. Pick one so new sessions start from it.")
+            ),
+            h(ChevronRightIcon, { className: "ov-chevron", width: 18, height: 18 })
           )
-    )),
-    h("section", null, h(SectionLabel, null, "Contact"), h(Card, null,
-      h(Field, { label: "Email", value: client.email }),
-      h(Field, { label: "Phone", value: client.phone }),
-      h(Field, { label: "Emergency contact", value: client.emergencyContactName }),
-      h(Field, { label: "Emergency phone", value: client.emergencyContactPhone })
-    )),
-    h("section", null, h(SectionLabel, null, "Health & safety"), h(Card, null,
-      h(Field, { label: "Medical history", value: client.medicalHistory }),
-      h(Field, { label: "Injuries & pain", value: client.injuriesAndPain }),
-      h(Field, { label: "Precautions", value: client.precautions })
-    )),
-    h("section", null, h(SectionLabel, null, "Current goal"), h(Card, null, h("p", { style: { margin: 0, fontSize: 14.5, whiteSpace: "pre-wrap" } }, client.currentGoal || "—"))),
-    h("section", null, h(SectionLabel, null, "General notes"), h(Card, null, h("p", { style: { margin: 0, fontSize: 14.5, whiteSpace: "pre-wrap" } }, client.generalNotes || "—")))
+    ),
+
+    h(OverviewSection, { title: "Sessions", linkLabel: "View all", onLink: goTab("sessions") },
+      h("div", { className: "ov-card ov-tiles" },
+        h("div", { className: "ov-tile" },
+          h("div", { className: "ov-tile-value" }, stats.remaining == null ? "—" : String(stats.remaining)),
+          h("div", { className: "ov-tile-label" }, "sessions remaining")
+        ),
+        h("div", { className: "ov-tile" },
+          h("div", { className: "ov-tile-value" }, String(stats.consumed)),
+          h("div", { className: "ov-tile-label" }, "sessions done")
+        ),
+        h("div", { className: "ov-tiles-foot" },
+          stats.total != null
+            ? PACKAGE_STATUS_LABEL[stats.packageStatus] + " · " + stats.consumedInCurrentPackage + " of " + stats.total + " used" + (client.packageExpiryDate ? " · expires " + formatDate(client.packageExpiryDate) : "")
+            : "No package set",
+          " · Last session " + (stats.lastSessionDate ? formatDate(stats.lastSessionDate) : "—")
+        )
+      ),
+      h(Link, { to: "/clients/" + client.id + "/sessions/new", className: "ov-cta" }, h(PlusCircleIcon, { width: 20, height: 20 }), "Log a new session")
+    ),
+
+    h(OverviewSection, { title: "Metrics", linkLabel: "View more", onLink: goTab("progress") },
+      h("div", { className: "ov-metrics" },
+        metrics.map(function (m) {
+          return h("div", { key: m.key, className: "ov-card" },
+            h("div", { className: "ov-label" }, m.label),
+            m.value
+              ? h("div", { className: classNames("ov-metric-value", m.tone) }, m.value)
+              : h("div", { className: "ov-metric-value none" }, "No data yet"),
+            m.value && h("div", { className: "ov-metric-sub" }, (m.detail ? m.detail + " · " : "") + formatDate(m.date))
+          );
+        })
+      )
+    ),
+
+    h(OverviewSection, { title: "Details" },
+      h("div", { className: "ov-details" },
+        h("div", { className: "ov-card" },
+          h("div", { className: "ov-card-title" }, "Personal details"),
+          h(Field, { label: "Gender", value: client.gender }),
+          h(Field, { label: "Date of birth", value: client.dateOfBirth ? formatDate(client.dateOfBirth) + (age != null ? " (" + age + " yrs)" : "") : null }),
+          h(Field, { label: "Preferred training", value: client.preferredTraining.join(", ") })
+        ),
+        h("div", { className: "ov-card" },
+          h("div", { className: "ov-card-title" }, "Contact"),
+          h(Field, { label: "Email", value: client.email }),
+          h(Field, { label: "Phone", value: client.phone }),
+          h(Field, { label: "Emergency contact", value: client.emergencyContactName }),
+          h(Field, { label: "Emergency phone", value: client.emergencyContactPhone })
+        ),
+        h("div", { className: "ov-card" },
+          h("div", { className: "ov-card-title" }, "Health & safety"),
+          h(Field, { label: "Medical history", value: client.medicalHistory }),
+          h(Field, { label: "Injuries & pain", value: client.injuriesAndPain }),
+          h(Field, { label: "Precautions", value: client.precautions })
+        ),
+        h("div", { className: "ov-card" },
+          h("div", { className: "ov-card-title" }, "Current goal"),
+          h("p", { style: { margin: 0, fontSize: 14.5, whiteSpace: "pre-wrap" } }, client.currentGoal || "—")
+        ),
+        h("div", { className: "ov-card" },
+          h("div", { className: "ov-card-title" }, "General notes"),
+          h("p", { style: { margin: 0, fontSize: 14.5, whiteSpace: "pre-wrap" } }, client.generalNotes || "—")
+        )
+      )
+    )
   );
 }
 function truncate(text, max) {
@@ -1059,6 +1150,19 @@ function ClientProfilePage(props) {
   var goals = useGoalsForClient(clientId);
   var assignedProgram = useProgram(client && client.assignedProgramId);
 
+  // Switching tabs keeps your place. The tab bar is pinned under the header,
+  // so if you had scrolled past where it normally sits, line the new tab's
+  // content up right beneath it instead of leaving you stranded mid-page.
+  var headCardRef = React.useRef(null);
+  var firstTabRender = React.useRef(true);
+  useEffect(function () {
+    if (firstTabRender.current) { firstTabRender.current = false; return; }
+    var card = headCardRef.current, header = document.querySelector(".page-header");
+    if (!card || !header) return;
+    var target = card.getBoundingClientRect().bottom + window.scrollY + 16 - header.offsetHeight;
+    if (window.scrollY > target) window.scrollTo(0, Math.max(0, target));
+  }, [tab]);
+
   if (client === undefined || sessions === undefined) return h(React.Fragment, null, h(PageHeader, { title: "Client", back: true }), h("div", { className: "page-content" }));
 
   var stats = computeSessionStats(client, sessions);
@@ -1066,35 +1170,26 @@ function ClientProfilePage(props) {
   return h(React.Fragment, null,
     h(PageHeader, { title: client.fullName, back: true, action: h(Link, { to: "/clients/" + client.id + "/edit", className: "icon-btn", "aria-label": "Edit client" }, h(EditIcon, null)) }),
     h("div", { className: "page-content stack" },
-      h("div", { className: "card", style: { display: "flex", alignItems: "center", gap: 14 } },
+      h("div", { className: "card", ref: headCardRef, style: { display: "flex", alignItems: "center", gap: 14 } },
         h("div", { className: "avatar avatar-lg", "aria-hidden": true }, initials(client.fullName)),
         h("div", { style: { minWidth: 0 } },
           h("h2", { style: { fontSize: 18, fontWeight: 700, marginBottom: 4 } }, client.fullName),
+          h("div", { className: "profile-meta" },
+            [calculateAge(client.dateOfBirth) != null ? calculateAge(client.dateOfBirth) + " yrs" : null, client.gender && client.gender !== "Prefer not to say" ? client.gender : null, client.startDate ? "Since " + formatDate(client.startDate) : null].filter(Boolean).join(" · ")
+          ),
           h("div", { className: "flex-row gap-8 wrap" },
             h(Badge, { tone: client.status === "active" ? "success" : "neutral" }, client.status === "active" ? "Active" : "Inactive"),
             client.preferredTraining.map(function (t) { return h(Badge, { key: t, tone: "info" }, t); })
           )
         )
       ),
-      h("div", { className: "stat-grid" },
-        h(StatCard, { label: "Sessions consumed", value: stats.consumed }),
-        h(StatCard, { label: "Sessions remaining", value: stats.remaining == null ? "—" : stats.remaining, tone: (stats.packageStatus === "expired" || stats.packageStatus === "expiring-soon") ? "warning" : undefined }),
-        h(StatCard, { label: "Start date", value: formatDate(client.startDate) }),
-        h(StatCard, { label: "Last session", value: formatDate(stats.lastSessionDate) })
+      h("div", { className: "profile-tabs" },
+        h(TabBar, {
+          value: tab, onChange: function (t) { setQueryParam("tab", t); },
+          tabs: [{ value: "overview", label: "Overview" }, { value: "training", label: "Training" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
+        })
       ),
-      stats.total != null && h("div", { className: "card flex-between" },
-        h("div", null,
-          h("div", { style: { fontWeight: 700, fontSize: 14 } }, "Package status"),
-          h("div", { className: "text-secondary", style: { fontSize: 13 } }, stats.consumedInCurrentPackage + " of " + stats.total + " sessions used" + (client.packageExpiryDate ? " · expires " + formatDate(client.packageExpiryDate) : ""))
-        ),
-        h(Badge, { tone: stats.packageStatus === "expired" ? "danger" : stats.packageStatus === "expiring-soon" ? "warning" : stats.packageStatus === "completed" ? "neutral" : "success" }, PACKAGE_STATUS_LABEL[stats.packageStatus])
-      ),
-      client.currentGoal && h("div", { className: "card" }, h("div", { className: "section-label", style: { marginBottom: 4 } }, "Current goal"), h("p", { style: { margin: 0, fontSize: 14.5 } }, client.currentGoal)),
-      h(TabBar, {
-        value: tab, onChange: function (t) { setQueryParam("tab", t); },
-        tabs: [{ value: "overview", label: "Overview" }, { value: "training", label: "Training" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
-      }),
-      tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram }),
+      tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram, stats: stats, sessions: sessions, bodyScores: bodyScores || [], movementScreens: movementScreens || [] }),
       tab === "training" && h(TrainingTab, { client: client }),
       tab === "sessions" && h(SessionsTab, { client: client, sessions: sessions }),
       tab === "goals" && h(GoalsTab, { client: client, goals: goals || [] }),

@@ -43,6 +43,22 @@ function sortScheduled(items) {
 }
 var STATUS_LABEL = { tracked: "Tracked", missed: "Missed", planned: "Planned" };
 
+/* Text for the Overview's "Workouts" card: how this week is going and what's
+   next. `items` is null when the calendar table hasn't been created yet. */
+function workoutsSummary(items, today) {
+  if (items === null) return { kind: "unavailable", text: "Set up the training calendar to assign workouts.", next: null };
+  var all = sortScheduled(items);
+  var stats = trainingStats(all, today);
+  var upcoming = all.filter(function (i) { return !i.sessionId && i.date >= today; })[0];
+  var next = upcoming ? { name: upcoming.programName || "Workout", date: upcoming.date } : null;
+  if (stats.thisWeek.assigned === 0 && !next) return { kind: "empty", text: "No workout assigned this week", next: null };
+  return {
+    kind: "active",
+    text: stats.thisWeek.assigned > 0 ? stats.thisWeek.tracked + " of " + stats.thisWeek.assigned + " tracked this week" : "Nothing assigned this week",
+    next: next,
+  };
+}
+
 /* null = the scheduled_workouts table has not been created yet. */
 function useScheduledForClient(id) {
   return useLiveQuery(function () { return id ? scheduledWorkoutRepository.listByClient(id) : []; }, [id]);
