@@ -153,19 +153,6 @@ function topExerciseNames(allSessions, category, limit) {
     })
     .slice(0, limit);
 }
-/* Does this exercise already have anything worth summarizing? Used to pick
-   whether a card starts collapsed (a clone, or any exercise being reviewed
-   in an existing session -- most fields are already right, so default to a
-   glance-line) or expanded (a brand-new blank exercise -- nothing to
-   summarize yet, needs filling in immediately). */
-function exerciseHasData(ex) {
-  var setDetails = normalizedSetDetails(ex);
-  var hasSetData = setDetails.some(function (s) { return s.reps != null || s.weight || s.restSeconds != null || s.holdSeconds != null; });
-  return !!(
-    ex.exerciseName || hasSetData ||
-    normalizedSprings(ex).length || normalizedProps(ex).length || normalizedSteps(ex).length || ex.notes
-  );
-}
 /* Single-limb exercises (side = Left/Right) are usually logged twice, once
    per side, with the same category/sets/springs/props and only a marginal
    difference (e.g. a lighter spring on the weaker side). Every nested id
@@ -277,6 +264,8 @@ function ExerciseEditor(props) {
   var exercises = props.exercises;
   var carousel = props.layout === "carousel";
   var _fr = useState({ index: 0, token: 0 }), focusRequest = _fr[0], setFocusRequest = _fr[1];
+  var _bk = useState({ mode: "expand", token: 0 }), bulk = _bk[0], setBulk = _bk[1];
+  function bulkSet(mode) { setBulk(function (b) { return { mode: mode, token: b.token + 1 }; }); }
   function requestFocus(index) { setFocusRequest(function (r) { return { index: index, token: r.token + 1 }; }); }
   function update(id, patch) { props.onChange(exercises.map(function (e) { return e.id === id ? Object.assign({}, e, patch) : e; })); }
   function remove(id) { props.onChange(exercises.filter(function (e) { return e.id !== id; })); }
@@ -296,7 +285,7 @@ function ExerciseEditor(props) {
   }
   function renderRow(ex, i) {
     return h(ExerciseRow, {
-      key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, alwaysExpanded: carousel,
+      key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, alwaysExpanded: carousel, bulk: bulk,
       onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); },
     });
   }
@@ -311,6 +300,10 @@ function ExerciseEditor(props) {
   }
   return h("div", { className: "exercise-editor" },
     emptyNote,
+    exercises.length > 1 && h("div", { className: "ex-bulk" },
+      h("button", { type: "button", className: "ex-bulk-btn", onClick: function () { bulkSet("collapse"); } }, "Collapse all"),
+      h("button", { type: "button", className: "ex-bulk-btn", onClick: function () { bulkSet("expand"); } }, "Expand all")
+    ),
     exercises.map(renderRow),
     addButton
   );
@@ -382,7 +375,19 @@ function ExerciseRow(props) {
   var steps = normalizedSteps(ex);
   var _seqIntent = useState(steps.length > 0), sequenceIntent = _seqIntent[0], setSequenceIntent = _seqIntent[1];
   var isSequence = sequenceIntent || steps.length > 0;
-  var _collapsed = useState(!props.alwaysExpanded && exerciseHasData(ex)), collapsed = _collapsed[0], setCollapsed = _collapsed[1];
+  // Cards always start open; the Collapse button (or "Collapse all" in the
+  // template builder) folds them to a summary, and tapping a summary reopens.
+  var _collapsed = useState(false), collapsed = _collapsed[0], setCollapsed = _collapsed[1];
+  // "Collapse all / Expand all" arrives as a token that changes per click.
+  // Remember the token this card was created under so a card added later is
+  // not collapsed by an earlier "Collapse all".
+  var seenBulk = React.useRef(props.bulk ? props.bulk.token : 0);
+  useEffect(function () {
+    if (props.bulk && props.bulk.token !== seenBulk.current) {
+      seenBulk.current = props.bulk.token;
+      setCollapsed(props.bulk.mode === "collapse");
+    }
+  }, [props.bulk]);
   // In the session carousel the template already set name/category/side, so
   // those fold into an "Edit details" toggle to keep each card short.
   var _details = useState(!ex.exerciseName), detailsOpen = _details[0], setDetailsOpen = _details[1];

@@ -425,3 +425,7 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; min-width: 0; 
 .exercise-editor .ex-collapse-btn:active { transform: scale(.96); }
 .exercise-editor .exercise-remove-btn { min-height: 44px; }
 .exercise-card-chevron.up { transform: rotate(-90deg); margin: 0; }
+.exercise-editor .ex-bulk { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 4px; }
+.exercise-editor .ex-bulk-btn { min-height: 44px; padding: 0 12px; border: none; background: none; border-radius: 10px; color: var(--ex-brand); font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s ease, transform .12s ease; }
+.exercise-editor .ex-bulk-btn:hover { background: var(--ex-brand-soft); }
+.exercise-editor .ex-bulk-btn:active { transform: scale(.96); }
