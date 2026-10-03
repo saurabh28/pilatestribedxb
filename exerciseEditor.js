@@ -66,6 +66,26 @@ function Stepper(props) {
     h("button", { type: "button", "aria-label": (props.ariaLabel || "value") + " increase", onClick: inc }, "+")
   );
 }
+/* A titled section of the exercise card. In the list view it is always open
+   (as before); in the session carousel it is collapsible and shows a
+   one-line summary while closed, so a card stays short. */
+function ExSection(props) {
+  var _o = useState(!props.collapsible), open = _o[0], setOpen = _o[1];
+  if (!props.collapsible) {
+    return h("div", { className: "ex-section" },
+      h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, props.title),
+      props.children
+    );
+  }
+  return h("div", { className: "ex-section" },
+    h("button", { type: "button", className: "ex-section-head", "aria-expanded": open, onClick: function () { setOpen(!open); } },
+      h("span", { className: "exercise-card-title" }, props.title),
+      h("span", { className: "ex-section-summary" }, props.summary || "None"),
+      h(ChevronRightIcon, { className: classNames("exercise-card-chevron", open && "expanded"), width: 16, height: 16 })
+    ),
+    open && h("div", { style: { marginTop: 10 } }, props.children)
+  );
+}
 /* Ref callback that sizes a textarea to its content, so a long step name
    wraps onto as many lines as it needs instead of being cut off. */
 function autoGrow(el) {
@@ -167,12 +187,98 @@ function flipSide(side) {
   if (side === "Right") return "Left";
   return side;
 }
+/* Which card is "current" in a horizontal carousel, from its scroll
+   position. `stride` is the distance from one card's left edge to the next
+   (card width + gap); `count` includes the trailing "add exercise" slide. */
+function carouselIndexFromScroll(scrollLeft, stride, count) {
+  if (!stride || stride <= 0 || count <= 0) return 0;
+  return Math.max(0, Math.min(count - 1, Math.round(scrollLeft / stride)));
+}
+
+/* Swipeable one-card-at-a-time view of a session's exercises, used once a
+   template is loaded (a full exercise card is tall, so a vertical stack of
+   them gets long). The next card peeks in to show it swipes; the track's
+   height follows the current card so shorter cards leave no empty gap. */
+function ExerciseCarousel(props) {
+  var exercises = props.exercises;
+  var count = exercises.length + 1;
+  var trackRef = React.useRef(null);
+  var _a = useState(0), active = _a[0], setActive = _a[1];
+
+  function slideStride(track) {
+    var kids = track.children;
+    return kids.length > 1 ? kids[1].offsetLeft - kids[0].offsetLeft : track.clientWidth;
+  }
+  function onScroll() {
+    var track = trackRef.current;
+    if (!track) return;
+    var idx = carouselIndexFromScroll(track.scrollLeft, slideStride(track), count);
+    if (idx !== active) setActive(idx);
+  }
+  function goTo(i, instant) {
+    var track = trackRef.current;
+    var kid = track && track.children[i];
+    if (!kid) return;
+    track.scrollTo({ left: Math.max(0, kid.offsetLeft - 4), behavior: instant ? "auto" : "smooth" });
+  }
+
+  React.useLayoutEffect(function () {
+    var track = trackRef.current;
+    var slide = track && track.children[active];
+    if (!slide) return undefined;
+    function fit() {
+      var cs = window.getComputedStyle(track);
+      track.style.height = (slide.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) + "px";
+    }
+    fit();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    var ro = new ResizeObserver(fit);
+    ro.observe(slide);
+    return function () { ro.disconnect(); };
+  }, [active, count]);
+
+  useEffect(function () {
+    if (props.focusRequest && props.focusRequest.token) goTo(props.focusRequest.index);
+  }, [props.focusRequest]);
+
+  useEffect(function () {
+    if (active > count - 1) { goTo(count - 1, true); setActive(count - 1); }
+  }, [count]);
+
+  var onAddSlide = active >= exercises.length;
+  return h("div", null,
+    exercises.length > 0 && h("div", { className: "ex-pager" },
+      h("span", { className: "ex-pager-label" }, onAddSlide ? "Add exercise" : "Exercise " + (active + 1) + " / " + exercises.length),
+      h("div", { className: "ex-pager-nav" },
+        h("button", { type: "button", className: "ex-pager-btn", "aria-label": "Previous exercise", disabled: active === 0, onClick: function () { goTo(active - 1); } }, h(ChevronLeftIcon, { width: 18, height: 18 })),
+        h("button", { type: "button", className: "ex-pager-btn", "aria-label": "Next exercise", disabled: active >= count - 1, onClick: function () { goTo(active + 1); } }, h(ChevronRightIcon, { width: 18, height: 18 }))
+      )
+    ),
+    exercises.length > 0 && count <= 11 && h("div", { className: "ex-dots" },
+      Array.apply(null, Array(count)).map(function (_, i) {
+        return h("button", {
+          key: i, type: "button", className: classNames("ex-dot", i === active && "active"),
+          "aria-label": i < exercises.length ? "Go to exercise " + (i + 1) : "Go to add exercise", onClick: function () { goTo(i); },
+        });
+      })
+    ),
+    h("div", { className: "ex-carousel", ref: trackRef, onScroll: onScroll },
+      exercises.map(function (ex, i) { return h("div", { key: ex.id, className: "ex-slide" }, props.renderRow(ex, i)); }),
+      h("div", { key: "__add", className: "ex-slide ex-slide-add" }, props.addButton)
+    )
+  );
+}
+
 function ExerciseEditor(props) {
   var exercises = props.exercises;
+  var carousel = props.layout === "carousel";
+  var _fr = useState({ index: 0, token: 0 }), focusRequest = _fr[0], setFocusRequest = _fr[1];
+  function requestFocus(index) { setFocusRequest(function (r) { return { index: index, token: r.token + 1 }; }); }
   function update(id, patch) { props.onChange(exercises.map(function (e) { return e.id === id ? Object.assign({}, e, patch) : e; })); }
   function remove(id) { props.onChange(exercises.filter(function (e) { return e.id !== id; })); }
   function add() {
     props.onChange(exercises.concat([blankExercise()]));
+    if (carousel) requestFocus(exercises.length);
   }
   function logOtherSide(id) {
     var idx = exercises.findIndex(function (e) { return e.id === id; });
@@ -182,12 +288,27 @@ function ExerciseEditor(props) {
     var next = exercises.slice();
     next.splice(idx + 1, 0, clone);
     props.onChange(next);
+    if (carousel) requestFocus(idx + 1);
   }
+  function renderRow(ex, i) {
+    return h(ExerciseRow, {
+      key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, alwaysExpanded: carousel,
+      onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); },
+    });
+  }
+  var addButton = h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: add }, h(PlusCircleIcon, { width: 18, height: 18 }), "Add exercise");
+  var emptyNote = exercises.length === 0 && h("p", { className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session.");
 
+  if (carousel) {
+    return h("div", { className: "exercise-editor" },
+      emptyNote,
+      h(ExerciseCarousel, { exercises: exercises, renderRow: renderRow, addButton: addButton, focusRequest: focusRequest })
+    );
+  }
   return h("div", { className: "exercise-editor" },
-    exercises.length === 0 && h("p",{ className: "text-secondary", style: { marginBottom: 12, fontSize: 13.5 } }, "No exercises added yet. Add each exercise performed this session."),
-    exercises.map(function (ex, i) { return h(ExerciseRow, { key: ex.id, index: i, exercise: ex, allSessions: props.allSessions, onChange: function (patch) { update(ex.id, patch); }, onRemove: function () { remove(ex.id); }, onLogOtherSide: function () { logOtherSide(ex.id); } }); }),
-    h(Button, { type: "button", variant: "secondary", className: "btn-block", onClick: add }, h(PlusCircleIcon, { width: 18, height: 18 }), "Add exercise")
+    emptyNote,
+    exercises.map(renderRow),
+    addButton
   );
 }
 function ExerciseRow(props) {
@@ -257,7 +378,11 @@ function ExerciseRow(props) {
   var steps = normalizedSteps(ex);
   var _seqIntent = useState(steps.length > 0), sequenceIntent = _seqIntent[0], setSequenceIntent = _seqIntent[1];
   var isSequence = sequenceIntent || steps.length > 0;
-  var _collapsed = useState(exerciseHasData(ex)), collapsed = _collapsed[0], setCollapsed = _collapsed[1];
+  var _collapsed = useState(!props.alwaysExpanded && exerciseHasData(ex)), collapsed = _collapsed[0], setCollapsed = _collapsed[1];
+  // In the session carousel the template already set name/category/side, so
+  // those fold into an "Edit details" toggle to keep each card short.
+  var _details = useState(!ex.exerciseName), detailsOpen = _details[0], setDetailsOpen = _details[1];
+  var showDetails = !props.alwaysExpanded || detailsOpen;
 
   function updateStep(stepId, patch) {
     props.onChange({ steps: steps.map(function (s) { return s.id === stepId ? Object.assign({}, s, patch) : s; }) });
@@ -293,11 +418,15 @@ function ExerciseRow(props) {
 
   return h("div", { className: "exercise-card", key: "expanded" },
     h("div", { className: "exercise-card-head" },
-      h("span", { className: "ex-tag" }, "Exercise " + (props.index + 1)),
+      h("span", { className: "ex-tag" }, props.alwaysExpanded ? ex.category + (ex.side && ex.side !== "N/A" ? " · " + ex.side : "") : "Exercise " + (props.index + 1)),
       h("button", { type: "button", className: "exercise-remove-btn", onClick: props.onRemove }, h(TrashIcon, { width: 15, height: 15 }), "Remove")
     ),
     h("div", { className: "exercise-fields-grid", style: { marginBottom: 10 } },
-      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+      props.alwaysExpanded && h("div", { className: "ex-session-head" },
+        h("span", { className: "ex-name" }, ex.exerciseName || "Untitled exercise"),
+        h("button", { type: "button", className: "ex-details-toggle", "aria-expanded": detailsOpen, onClick: function () { setDetailsOpen(!detailsOpen); } }, detailsOpen ? "Hide details" : "Edit details")
+      ),
+      showDetails && h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label", htmlFor: idp + "-name" }, "Exercise name"),
         suggestedNames.length > 0 && h("div", { className: "chip-group", style: { marginBottom: 8 } },
           suggestedNames.map(function (name) {
@@ -309,14 +438,15 @@ function ExerciseRow(props) {
         ),
         h("input", { id: idp + "-name", className: "input", value: ex.exerciseName, onChange: txt("exerciseName"), placeholder: "e.g. Footwork on reformer" })
       ),
-      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+      showDetails && h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label" }, "This exercise is"),
-        h("div", { className: "chip-group", style: { marginBottom: isSequence ? 10 : 0 } },
+        h("div", { className: "chip-group" },
           h("button", { type: "button", className: classNames("chip", !isSequence && "selected"), onClick: function () { setSequenceIntent(false); } }, "One movement"),
           h("button", { type: "button", className: classNames("chip", isSequence && "selected"), onClick: function () { setSequenceIntent(true); } }, "A sequence of steps")
-        ),
-        isSequence && h("div", { className: "ex-section" },
-          h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Sequence · " + steps.length + (steps.length === 1 ? " step" : " steps")),
+        )
+      ),
+      isSequence && h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+        h(ExSection, { title: "Sequence · " + steps.length + (steps.length === 1 ? " step" : " steps"), collapsible: props.alwaysExpanded, summary: steps.map(function (s) { return s.label; }).filter(Boolean).join(" → ") },
           steps.map(function (s, i) {
             return h("div", { key: s.id, className: "step-item" },
               h("div", { className: "step-item-row" },
@@ -347,7 +477,7 @@ function ExerciseRow(props) {
           h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addStep }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add step")
         )
       ),
-      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+      showDetails && h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label" }, "Category"),
         h("div", { className: "chip-group" },
           EXERCISE_CATEGORIES.map(function (c) {
@@ -358,7 +488,7 @@ function ExerciseRow(props) {
           })
         )
       ),
-      h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
+      showDetails && h("div", { className: "form-field", style: { gridColumn: "1 / -1" } },
         h("label", { className: "form-label" }, "Side"),
         h("div", { className: "segmented" },
           SIDES.map(function (s) {
@@ -369,15 +499,15 @@ function ExerciseRow(props) {
           })
         )
       ),
-      h("div", { className: "form-field" },
+      showDetails && h("div", { className: "form-field" },
         h("label", { className: "form-label", htmlFor: idp + "-dur" }, "Duration (sec)"),
         h("input", { id: idp + "-dur", className: "input", type: "number", min: 0, inputMode: "numeric", value: ex.duration == null ? "" : ex.duration, onChange: num("duration") })
       ),
-      config.usesDistance && h("div", { className: "form-field" },
+      showDetails && config.usesDistance && h("div", { className: "form-field" },
         h("label", { className: "form-label", htmlFor: idp + "-dist" }, "Distance"),
         h("input", { id: idp + "-dist", className: "input", value: ex.distance || "", onChange: txt("distance"), placeholder: "e.g. 5km" })
       ),
-      config.usesIntensity && h("div", { className: "form-field" },
+      showDetails && config.usesIntensity && h("div", { className: "form-field" },
         h("label", { className: "form-label", htmlFor: idp + "-int" }, "Intensity"),
         h("input", { id: idp + "-int", className: "input", value: ex.intensity || "", onChange: txt("intensity"), placeholder: "e.g. RPE 7, Zone 2" })
       )
@@ -427,8 +557,7 @@ function ExerciseRow(props) {
       h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSet }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add set")
     ),
 
-    config.usesSprings && h("div", { className: "ex-section" },
-      h("div", { className: "flex-between", style: { marginBottom: 8 } }, h("span", { className: "exercise-card-title" }, "Springs")),
+    config.usesSprings && h(ExSection, { title: "Springs", collapsible: props.alwaysExpanded, summary: springs.map(formatSpringLine).join(", ") },
       springs.map(function (sp, i) {
         return h("div", { key: sp.id, className: "spring-row-card" },
           h("div", { className: "spring-row-head" },
@@ -474,8 +603,7 @@ function ExerciseRow(props) {
       h("button", { type: "button", className: "btn-text", style: { fontSize: 13, fontWeight: 700 }, onClick: addSpring }, h(PlusCircleIcon, { width: 16, height: 16 }), "Add spring")
     ),
 
-    config.usesProps && h("div", { className: "ex-section" },
-      h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Props"),
+    config.usesProps && h(ExSection, { title: "Props", collapsible: props.alwaysExpanded, summary: selectedProps.map(function (p) { return p.name; }).join(", ") },
       h("div", { className: "chip-group", style: { marginBottom: 10 } },
         propOptions.map(function (name) {
           var selected = selectedProps.some(function (p) { return p.name === name; });
@@ -503,8 +631,7 @@ function ExerciseRow(props) {
       )
     ),
 
-    (config.usesAssistance || config.usesBox) && h("div", { className: "ex-section" },
-      h("div", { className: "exercise-card-title", style: { marginBottom: 8 } }, "Pilates detail"),
+    (config.usesAssistance || config.usesBox) && h(ExSection, { title: "Pilates detail", collapsible: props.alwaysExpanded, summary: [ex.assistanceLevel, ex.box ? "Box" : ""].filter(Boolean).join(", ") },
       h("div", { className: "exercise-fields-grid" },
         config.usesAssistance && h("div", { className: "form-field" },
           h("label", { className: "form-label", htmlFor: idp + "-assist" }, "Assistance level"),

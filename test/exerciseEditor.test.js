@@ -115,4 +115,13 @@ assert.strictEqual(sandbox.formatStepLine({ label: "Bridge & hold", reps: null, 
 assert.strictEqual(sandbox.formatStepLine({ label: "Leg raises", reps: 10, holdSeconds: null }), "Leg raises (×10)");
 assert.strictEqual(sandbox.formatStepLine({ label: "Rest", reps: null, holdSeconds: null }), "Rest");
 
+// carouselIndexFromScroll: which card is "current" from scroll position.
+assert.strictEqual(sandbox.carouselIndexFromScroll(0, 300, 4), 0);
+assert.strictEqual(sandbox.carouselIndexFromScroll(140, 300, 4), 0);
+assert.strictEqual(sandbox.carouselIndexFromScroll(160, 300, 4), 1);
+assert.strictEqual(sandbox.carouselIndexFromScroll(5000, 300, 4), 3, "clamps to the last card");
+assert.strictEqual(sandbox.carouselIndexFromScroll(-20, 300, 4), 0, "clamps to the first card");
+assert.strictEqual(sandbox.carouselIndexFromScroll(100, 0, 4), 0, "zero stride is safe");
+assert.strictEqual(sandbox.carouselIndexFromScroll(100, 300, 0), 0, "no cards is safe");
+
 console.log("exerciseEditor.test.js: all assertions passed");

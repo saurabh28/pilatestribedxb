@@ -479,12 +479,23 @@ var movementScreenRepository = {
    session never mutates the original template. Unchanged from the local
    version — pure JS, no DB access. */
 function instantiateProgramExercises(exercises) {
+  function fresh(list) { return (list || []).map(function (item) { return Object.assign({}, item, { id: generateId() }); }); }
   return (exercises || []).map(function (ex) {
     return Object.assign({}, ex, {
       id: generateId(),
-      setDetails: (ex.setDetails || []).map(function (s) { return Object.assign({}, s, { id: generateId() }); }),
+      setDetails: fresh(ex.setDetails),
+      springs: fresh(ex.springs),
+      selectedProps: fresh(ex.selectedProps),
+      steps: fresh(ex.steps),
     });
   });
+}
+/* The template pre-picked when starting a session: the client's default
+   template, but only if it still exists (it may have been deleted). */
+function defaultTemplateId(client, templates) {
+  if (!client || !client.assignedProgramId) return "";
+  var found = (templates || []).some(function (t) { return t.id === client.assignedProgramId; });
+  return found ? client.assignedProgramId : "";
 }
 
 /* ---------------------------------------------------------------------- */
