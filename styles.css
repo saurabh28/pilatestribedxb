@@ -417,3 +417,11 @@ fieldset.form-group { border: none; padding: 0; margin: 0 0 22px; min-width: 0; 
 .exercise-editor .ex-section-head { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0; background: none; border: none; text-align: left; cursor: pointer; font-family: inherit; }
 .exercise-editor .ex-section-summary { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ex-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .exercise-editor .ex-dots-bottom { margin-top: -6px; }
+
+/* Collapse control on an expanded exercise card */
+.exercise-editor .ex-head-actions { display: flex; align-items: center; gap: 2px; }
+.exercise-editor .ex-collapse-btn { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 10px; border: none; background: none; border-radius: 10px; color: var(--ex-brand); font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s ease, transform .12s ease; }
+.exercise-editor .ex-collapse-btn:hover { background: var(--ex-brand-soft); }
+.exercise-editor .ex-collapse-btn:active { transform: scale(.96); }
+.exercise-editor .exercise-remove-btn { min-height: 44px; }
+.exercise-card-chevron.up { transform: rotate(-90deg); margin: 0; }

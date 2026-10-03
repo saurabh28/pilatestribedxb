@@ -423,7 +423,11 @@ function ExerciseRow(props) {
   return h("div", { className: "exercise-card", key: "expanded" },
     h("div", { className: "exercise-card-head" },
       h("span", { className: "ex-tag" }, props.alwaysExpanded ? ex.category + (ex.side && ex.side !== "N/A" ? " · " + ex.side : "") : "Exercise " + (props.index + 1)),
-      h("button", { type: "button", className: "exercise-remove-btn", onClick: props.onRemove }, h(TrashIcon, { width: 15, height: 15 }), "Remove")
+      h("div", { className: "ex-head-actions" },
+        h("button", { type: "button", className: "ex-collapse-btn", "aria-label": "Collapse exercise " + (props.index + 1), onClick: function () { setCollapsed(true); } },
+          h(ChevronRightIcon, { className: "exercise-card-chevron up", width: 14, height: 14 }), "Collapse"),
+        h("button", { type: "button", className: "exercise-remove-btn", onClick: props.onRemove }, h(TrashIcon, { width: 15, height: 15 }), "Remove")
+      )
     ),
     h("div", { className: "exercise-fields-grid", style: { marginBottom: 10 } },
       props.alwaysExpanded && h("div", { className: "ex-session-head" },
