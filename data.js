@@ -84,7 +84,7 @@ function initials(name) {
 /* Supabase client + auth                                                   */
 /* ---------------------------------------------------------------------- */
 
-var supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+var supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },
 });
 
@@ -101,26 +101,26 @@ function setAuthState(session) {
   authState = { session: session, ready: true };
   authListeners.slice().forEach(function (fn) { fn(authState); });
 }
-supabase.auth.getSession().then(function (r) { setAuthState(r.data.session); });
-supabase.auth.onAuthStateChange(function (_event, session) {
+supabaseClient.auth.getSession().then(function (r) { setAuthState(r.data.session); });
+supabaseClient.auth.onAuthStateChange(function (_event, session) {
   setAuthState(session);
   notifyDataChanged();
 });
 
 var authRepository = {
   signInWithPassword: function (email, password) {
-    return supabase.auth.signInWithPassword({ email: email, password: password }).then(function (r) {
+    return supabaseClient.auth.signInWithPassword({ email: email, password: password }).then(function (r) {
       if (r.error) throw r.error;
       return r.data;
     });
   },
   signUp: function (email, password) {
-    return supabase.auth.signUp({ email: email, password: password }).then(function (r) {
+    return supabaseClient.auth.signUp({ email: email, password: password }).then(function (r) {
       if (r.error) throw r.error;
       return r.data;
     });
   },
-  signOut: function () { return supabase.auth.signOut(); },
+  signOut: function () { return supabaseClient.auth.signOut(); },
   getState: function () { return authState; },
   currentUser: function () { return authState.session ? authState.session.user : null; },
 };
@@ -439,7 +439,7 @@ function latestScoresByArea(history) {
 
 var clientRepository = {
   list: function (filter) {
-    return supabase.from("clients").select("*").order("full_name", { ascending: true })
+    return supabaseClient.from("clients").select("*").order("full_name", { ascending: true })
       .then(checkError).then(function (rows) {
         var items = rows.map(rowToClient);
         if (filter && filter.status) items = items.filter(function (c) { return c.status === filter.status; });
@@ -456,28 +456,28 @@ var clientRepository = {
   },
   get: function (id) {
     if (!id) return Promise.resolve(undefined);
-    return supabase.from("clients").select("*").eq("id", id).maybeSingle().then(checkError).then(rowToClient);
+    return supabaseClient.from("clients").select("*").eq("id", id).maybeSingle().then(checkError).then(rowToClient);
   },
   create: function (input) {
     var row = clientToRow(Object.assign({ id: generateId() }, input));
-    return supabase.from("clients").insert(row).select().single().then(checkError).then(rowToClient).then(afterWrite);
+    return supabaseClient.from("clients").insert(row).select().single().then(checkError).then(rowToClient).then(afterWrite);
   },
   update: function (id, patch) {
     var row = clientToRow(patch);
-    return supabase.from("clients").update(row).eq("id", id).select().maybeSingle().then(checkError).then(function (r) {
+    return supabaseClient.from("clients").update(row).eq("id", id).select().maybeSingle().then(checkError).then(function (r) {
       if (!r) throw new Error("Client not found");
       return afterWrite(rowToClient(r));
     });
   },
   remove: function (id) {
     // sessions/goals cascade-delete server-side via foreign keys.
-    return supabase.from("clients").delete().eq("id", id).then(checkError).then(afterWrite);
+    return supabaseClient.from("clients").delete().eq("id", id).then(checkError).then(afterWrite);
   },
 };
 
 var sessionRepository = {
   listByClient: function (clientId) {
-    return supabase.from("sessions").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
+    return supabaseClient.from("sessions").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
       var items = rows.map(rowToSession);
       items.sort(function (a, b) {
         if (a.date < b.date) return 1;
@@ -488,7 +488,7 @@ var sessionRepository = {
     });
   },
   listAll: function () {
-    return supabase.from("sessions").select("*").then(checkError).then(function (rows) {
+    return supabaseClient.from("sessions").select("*").then(checkError).then(function (rows) {
       var items = rows.map(rowToSession);
       items.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
       return items;
@@ -496,18 +496,18 @@ var sessionRepository = {
   },
   get: function (id) {
     if (!id) return Promise.resolve(undefined);
-    return supabase.from("sessions").select("*").eq("id", id).maybeSingle().then(checkError).then(rowToSession);
+    return supabaseClient.from("sessions").select("*").eq("id", id).maybeSingle().then(checkError).then(rowToSession);
   },
   create: function (input) {
     var row = sessionToRow(Object.assign({ id: generateId() }, input));
-    function insert(r) { return supabase.from("sessions").insert(r).select().single(); }
+    function insert(r) { return supabaseClient.from("sessions").insert(r).select().single(); }
     return insert(row).then(function (res) {
       return res.error && isMissingProgramIdColumn(res.error) ? insert(stripProgramId(row)) : res;
     }).then(checkError).then(rowToSession).then(afterWrite);
   },
   update: function (id, patch) {
     var row = sessionToRow(patch);
-    function save(r) { return supabase.from("sessions").update(r).eq("id", id).select().maybeSingle(); }
+    function save(r) { return supabaseClient.from("sessions").update(r).eq("id", id).select().maybeSingle(); }
     return save(row).then(function (res) {
       return res.error && isMissingProgramIdColumn(res.error) ? save(stripProgramId(row)) : res;
     }).then(checkError).then(function (r) {
@@ -515,9 +515,9 @@ var sessionRepository = {
       return afterWrite(rowToSession(r));
     });
   },
-  remove: function (id) { return supabase.from("sessions").delete().eq("id", id).then(checkError).then(afterWrite); },
+  remove: function (id) { return supabaseClient.from("sessions").delete().eq("id", id).then(checkError).then(afterWrite); },
   nextSessionNumber: function (clientId) {
-    return supabase.from("sessions").select("session_number").eq("client_id", clientId).then(checkError).then(function (rows) {
+    return supabaseClient.from("sessions").select("session_number").eq("client_id", clientId).then(checkError).then(function (rows) {
       var max = rows.reduce(function (m, s) { return Math.max(m, s.session_number || 0); }, 0);
       return max + 1;
     });
@@ -526,34 +526,34 @@ var sessionRepository = {
 
 var goalRepository = {
   listByClient: function (clientId) {
-    return supabase.from("goals").select("*").eq("client_id", clientId).then(checkError).then(function (rows) { return rows.map(rowToGoal); });
+    return supabaseClient.from("goals").select("*").eq("client_id", clientId).then(checkError).then(function (rows) { return rows.map(rowToGoal); });
   },
   listAll: function () {
-    return supabase.from("goals").select("*").then(checkError).then(function (rows) { return rows.map(rowToGoal); });
+    return supabaseClient.from("goals").select("*").then(checkError).then(function (rows) { return rows.map(rowToGoal); });
   },
   upsertForTimeframe: function (clientId, timeframe, patch) {
-    return supabase.from("goals").select("*").eq("client_id", clientId).eq("timeframe", timeframe).maybeSingle()
+    return supabaseClient.from("goals").select("*").eq("client_id", clientId).eq("timeframe", timeframe).maybeSingle()
       .then(checkError).then(function (existing) {
         if (existing) {
           var row = goalToRow(patch);
-          return supabase.from("goals").update(row).eq("id", existing.id).select().single()
+          return supabaseClient.from("goals").update(row).eq("id", existing.id).select().single()
             .then(checkError).then(rowToGoal).then(afterWrite);
         }
         var createRow = goalToRow(Object.assign({
           id: generateId(), clientId: clientId, timeframe: timeframe,
           goal: "", measurableTarget: "", status: "Not started", notes: "",
         }, patch));
-        return supabase.from("goals").insert(createRow).select().single()
+        return supabaseClient.from("goals").insert(createRow).select().single()
           .then(checkError).then(rowToGoal).then(afterWrite);
       });
   },
-  remove: function (id) { return supabase.from("goals").delete().eq("id", id).then(checkError).then(afterWrite); },
+  remove: function (id) { return supabaseClient.from("goals").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
 var scheduledWorkoutRepository = {
   /* An array of assignments, or null if the table hasn't been created yet. */
   listByClient: function (clientId) {
-    return supabase.from("scheduled_workouts").select("*").eq("client_id", clientId).order("scheduled_date", { ascending: true })
+    return supabaseClient.from("scheduled_workouts").select("*").eq("client_id", clientId).order("scheduled_date", { ascending: true })
       .then(function (res) {
         if (res.error) {
           if (isMissingScheduleTable(res.error)) return null;
@@ -564,7 +564,7 @@ var scheduledWorkoutRepository = {
   },
   get: function (id) {
     if (!id) return Promise.resolve(undefined);
-    return supabase.from("scheduled_workouts").select("*").eq("id", id).maybeSingle().then(function (res) {
+    return supabaseClient.from("scheduled_workouts").select("*").eq("id", id).maybeSingle().then(function (res) {
       if (res.error) {
         if (isMissingScheduleTable(res.error)) return undefined;
         throw res.error;
@@ -575,7 +575,7 @@ var scheduledWorkoutRepository = {
   /* Assign one or more templates (each a { clientId, programId, programName, date }). */
   createMany: function (inputs) {
     var rows = inputs.map(function (i) { return scheduledToRow(Object.assign({ id: generateId() }, i)); });
-    return supabase.from("scheduled_workouts").insert(rows).select().then(function (res) {
+    return supabaseClient.from("scheduled_workouts").insert(rows).select().then(function (res) {
       if (res.error) {
         if (isMissingScheduleTable(res.error)) {
           throw new Error("The training calendar isn't set up yet, so workouts can't be assigned. It needs a quick one-time setup first (see supabase/schema.sql).");
@@ -587,36 +587,36 @@ var scheduledWorkoutRepository = {
   },
   /* Marks an assignment as tracked by pointing it at the session logged from it. */
   linkSession: function (id, sessionId) {
-    return supabase.from("scheduled_workouts").update({ session_id: sessionId }).eq("id", id).then(checkError).then(afterWrite);
+    return supabaseClient.from("scheduled_workouts").update({ session_id: sessionId }).eq("id", id).then(checkError).then(afterWrite);
   },
-  remove: function (id) { return supabase.from("scheduled_workouts").delete().eq("id", id).then(checkError).then(afterWrite); },
+  remove: function (id) { return supabaseClient.from("scheduled_workouts").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
 var programRepository = {
   list: function () {
-    return supabase.from("programs").select("*").order("name", { ascending: true }).then(checkError).then(function (rows) { return rows.map(rowToProgram); });
+    return supabaseClient.from("programs").select("*").order("name", { ascending: true }).then(checkError).then(function (rows) { return rows.map(rowToProgram); });
   },
   get: function (id) {
     if (!id) return Promise.resolve(undefined);
-    return supabase.from("programs").select("*").eq("id", id).maybeSingle().then(checkError).then(rowToProgram);
+    return supabaseClient.from("programs").select("*").eq("id", id).maybeSingle().then(checkError).then(rowToProgram);
   },
   create: function (input) {
     var row = programToRow(Object.assign({ id: generateId() }, input));
-    return supabase.from("programs").insert(row).select().single().then(checkError).then(rowToProgram).then(afterWrite);
+    return supabaseClient.from("programs").insert(row).select().single().then(checkError).then(rowToProgram).then(afterWrite);
   },
   update: function (id, patch) {
     var row = programToRow(patch);
-    return supabase.from("programs").update(row).eq("id", id).select().maybeSingle().then(checkError).then(function (r) {
+    return supabaseClient.from("programs").update(row).eq("id", id).select().maybeSingle().then(checkError).then(function (r) {
       if (!r) throw new Error("Program not found");
       return afterWrite(rowToProgram(r));
     });
   },
-  remove: function (id) { return supabase.from("programs").delete().eq("id", id).then(checkError).then(afterWrite); },
+  remove: function (id) { return supabaseClient.from("programs").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
 var bodyScoreRepository = {
   listByClient: function (clientId) {
-    return supabase.from("body_scores").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
+    return supabaseClient.from("body_scores").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
       var items = rows.map(rowToBodyScore);
       items.sort(function (a, b) { return a.recordedAt < b.recordedAt ? -1 : a.recordedAt > b.recordedAt ? 1 : 0; });
       return items;
@@ -625,11 +625,11 @@ var bodyScoreRepository = {
   createMany: function (inputs) {
     if (!inputs || inputs.length === 0) return Promise.resolve([]);
     var rows = inputs.map(function (input) { return bodyScoreToRow(Object.assign({ id: generateId() }, input)); });
-    return supabase.from("body_scores").insert(rows).select().then(checkError).then(function (rows) {
+    return supabaseClient.from("body_scores").insert(rows).select().then(checkError).then(function (rows) {
       return rows.map(rowToBodyScore);
     }).then(afterWrite);
   },
-  remove: function (id) { return supabase.from("body_scores").delete().eq("id", id).then(checkError).then(afterWrite); },
+  remove: function (id) { return supabaseClient.from("body_scores").delete().eq("id", id).then(checkError).then(afterWrite); },
 };
 
 function rowToMovementScreen(r) {
@@ -655,7 +655,7 @@ function movementScreenToRow(s) {
 }
 var movementScreenRepository = {
   listByClient: function (clientId) {
-    return supabase.from("movement_screens").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
+    return supabaseClient.from("movement_screens").select("*").eq("client_id", clientId).then(checkError).then(function (rows) {
       var items = rows.map(rowToMovementScreen);
       items.sort(function (a, b) { return a.screenedAt < b.screenedAt ? -1 : a.screenedAt > b.screenedAt ? 1 : 0; });
       return items;
@@ -663,7 +663,7 @@ var movementScreenRepository = {
   },
   create: function (input) {
     var row = movementScreenToRow(Object.assign({ id: generateId() }, input));
-    return supabase.from("movement_screens").insert(row).select().single().then(checkError).then(rowToMovementScreen).then(afterWrite);
+    return supabaseClient.from("movement_screens").insert(row).select().single().then(checkError).then(rowToMovementScreen).then(afterWrite);
   },
 };
 
@@ -756,15 +756,15 @@ function restoreBackup(backup, mode) {
 
   return clearStep.then(function () {
     var programRows = programs.map(programToRow);
-    var p1 = programRows.length ? supabase.from("programs").upsert(programRows).then(checkError) : Promise.resolve();
+    var p1 = programRows.length ? supabaseClient.from("programs").upsert(programRows).then(checkError) : Promise.resolve();
     return p1.then(function () {
       var clientRows = clients.map(clientToRow);
-      return clientRows.length ? supabase.from("clients").upsert(clientRows).then(checkError) : Promise.resolve();
+      return clientRows.length ? supabaseClient.from("clients").upsert(clientRows).then(checkError) : Promise.resolve();
     }).then(function () {
       var sessionRows = sessions.map(sessionToRow);
       var goalRows = goals.map(goalToRow);
-      var p3 = sessionRows.length ? supabase.from("sessions").upsert(sessionRows).then(checkError) : Promise.resolve();
-      var p4 = goalRows.length ? supabase.from("goals").upsert(goalRows).then(checkError) : Promise.resolve();
+      var p3 = sessionRows.length ? supabaseClient.from("sessions").upsert(sessionRows).then(checkError) : Promise.resolve();
+      var p4 = goalRows.length ? supabaseClient.from("goals").upsert(goalRows).then(checkError) : Promise.resolve();
       return Promise.all([p3, p4]);
     });
   }).then(afterWrite);
@@ -772,12 +772,12 @@ function restoreBackup(backup, mode) {
 function wipeAllData() {
   var ALL = "00000000-0000-0000-0000-000000000000"; // Supabase requires a filter on delete; this matches every real row.
   return Promise.all([
-    supabase.from("sessions").delete().neq("id", ALL).then(checkError),
-    supabase.from("goals").delete().neq("id", ALL).then(checkError),
+    supabaseClient.from("sessions").delete().neq("id", ALL).then(checkError),
+    supabaseClient.from("goals").delete().neq("id", ALL).then(checkError),
   ]).then(function () {
     return Promise.all([
-      supabase.from("clients").delete().neq("id", ALL).then(checkError),
-      supabase.from("programs").delete().neq("id", ALL).then(checkError),
+      supabaseClient.from("clients").delete().neq("id", ALL).then(checkError),
+      supabaseClient.from("programs").delete().neq("id", ALL).then(checkError),
     ]);
   }).then(afterWrite);
 }

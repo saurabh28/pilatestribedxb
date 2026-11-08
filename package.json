@@ -1,0 +1,22 @@
+{
+  "name": "pilatestribe-client-studio",
+  "version": "3.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js test/*.test.mjs",
+    "build": "node scripts/build.mjs && node scripts/build-worker.mjs",
+    "dev": "node scripts/preview.mjs",
+    "db:generate": "drizzle-kit generate --config drizzle.config.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.119.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "supabase": "3.0.0"
+  }
+}
