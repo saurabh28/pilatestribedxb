@@ -7,10 +7,11 @@
 function useLiveQuery(querier, deps) {
   var _s = useState(undefined), result = _s[0], setResult = _s[1];
   useEffect(function () {
-    var cancelled = false;
+    var cancelled = false; var requestVersion = 0;
     function run() {
-      Promise.resolve(querier()).then(function (v) { if (!cancelled) setResult(v); })
-        .catch(function (e) { console.error("query error", e); });
+      var currentRequest = ++requestVersion;
+      Promise.resolve(querier()).then(function (v) { if (!cancelled && currentRequest === requestVersion) setResult(v); })
+        .catch(function (e) { if (!cancelled) crmReportError(e); });
     }
     run();
     var unsubscribe = onDataChanged(run);
@@ -31,7 +32,7 @@ function useSessionsForClient(id) { return useLiveQuery(function () { return id 
 function useBodyScoresForClient(id) { return useLiveQuery(function () { return id ? bodyScoreRepository.listByClient(id) : []; }, [id]); }
 function useMovementScreensForClient(id) { return useLiveQuery(function () { return id ? movementScreenRepository.listByClient(id) : []; }, [id]); }
 function useSession(id) { return useLiveQuery(function () { return id ? sessionRepository.get(id) : undefined; }, [id]); }
-function useAllSessions() { return useLiveQuery(function () { return sessionRepository.listAll(); }, []); }
+function useAllSessions() { return useLiveQuery(function () { return sessionRepository.listAll().then(function(rows){return rows.filter(crmCompleted);}); }, []); }
 function useGoalsForClient(id) { return useLiveQuery(function () { return id ? goalRepository.listByClient(id) : []; }, [id]); }
 function useAllGoals() { return useLiveQuery(function () { return goalRepository.listAll(); }, []); }
 function useAllPrograms() { return useLiveQuery(function () { return programRepository.list(); }, []); }
@@ -99,9 +100,14 @@ function Link(props) {
 var PRIMARY_NAV = [
   { to: "/", label: "Dashboard", icon: HomeIcon, match: function (p) { return p.length === 0; } },
   { to: "/clients", label: "Clients", icon: UsersIcon, match: function (p) { return p[0] === "clients"; } },
-  { to: "/add-session", label: "Add Session", icon: PlusCircleIcon, match: function (p) { return p[0] === "add-session"; } },
+  { to: "/attendance/new", label: "Record", icon: PlusCircleIcon, match: function (p) { return p[0] === "attendance" && p[1] === "new"; } },
 ];
 var DESKTOP_NAV = [
+  { to: "/finance", label: "Sales & purchases", icon: ClipboardIcon, match: function(p){return ["finance","purchases","payments"].includes(p[0]);} },
+  { to: "/record-review", label: "Review records", icon: AlertIcon, match: function(p){return p[0]==="record-review";} },
+  { to: "/coach-connect", label: "Connect ChatGPT", icon: ClipboardIcon, match: function(p){return p[0]==="coach-connect";} },
+  { to: "/attendance", label: "Attendance", icon: CalendarIcon, match: function(p){return p[0]==="attendance" && p[1]!=="new";} },
+  { to: "/renewals", label: "Renewals", icon: AlertIcon, match: function(p){return p[0]==="renewals";} },
   { to: "/sessions", label: "Session History", icon: CalendarIcon, match: function (p) { return p[0] === "sessions"; } },
   { to: "/goals", label: "Goals", icon: TargetIcon, match: function (p) { return p[0] === "goals"; } },
   { to: "/programs", label: "Templates", icon: ClipboardIcon, match: function (p) { return p[0] === "programs"; } },
@@ -123,7 +129,7 @@ function Sidebar(props) {
   );
 }
 function BottomNav(props) {
-  var moreActive = ["sessions", "goals", "programs", "settings", "more"].indexOf(props.route.parts[0]) !== -1;
+  var moreActive = ["finance","purchases","payments","record-review","coach-connect","renewals","attendance","sessions", "goals", "programs", "settings", "more"].indexOf(props.route.parts[0]) !== -1;
   return h("nav", { className: "bottom-nav", "aria-label": "Primary" },
     PRIMARY_NAV.map(function (item) {
       var active = item.match(props.route.parts);
@@ -183,6 +189,7 @@ function SampleDataBanner() {
 function Dashboard() {
   var clients = useClients();
   var sessions = useAllSessions();
+  var sessionRecords=useLiveQuery(function(){return sessionRepository.listAll();},[]);
   var today = todayIso();
   var weekStart = useMemo(function () { return startOfWeekIso(); }, []);
   var activeClients = (clients || []).filter(function (c) { return c.status === "active"; });
@@ -190,12 +197,9 @@ function Dashboard() {
   var sessionsThisWeek = (sessions || []).filter(function (s) { return s.date >= weekStart; });
 
   var expiring = useMemo(function () {
-    if (!clients || !sessions) return [];
-    return clients.filter(function (c) { return c.status === "active"; })
-      .map(function (c) { return { client: c, stats: computeSessionStats(c, sessions.filter(function (s) { return s.clientId === c.id; })) }; })
-      .filter(function (x) { return x.stats.packageStatus === "expiring-soon" || x.stats.packageStatus === "expired"; })
-      .sort(function (a, b) { return a.stats.packageStatus === "expired" ? -1 : 1; });
-  }, [clients, sessions]);
+    if(!clients||!sessionRecords)return [];
+    return crmRenewalList(clients,sessionRecords).map(function(c){return {client:c,stats:computeSessionStats(c,sessionRecords.filter(function(s){return s.clientId===c.id;}))};});
+  },[clients,sessionRecords]);
 
   var recentSessions = (sessions || []).slice(0, 5);
   var clientById = useMemo(function () {
@@ -212,7 +216,7 @@ function Dashboard() {
         ? h(EmptyState, {
             icon: h(UsersIcon, { width: 40, height: 40 }),
             title: "Welcome! Let's add your first client",
-            message: "Everything lives in this browser — clients, sessions, and goals are stored locally and privately.",
+            message: "Clients, sessions, and goals are saved in your private trainer account.",
             action: h(Link, { to: "/clients/new" }, h(Button, null, h(PlusCircleIcon, { width: 18, height: 18 }), "Add your first client")),
           })
         : h(React.Fragment, null,
@@ -224,7 +228,7 @@ function Dashboard() {
             ),
             h("div", { className: "flex-row gap-12" },
               h(Link, { to: "/clients/new", style: { flex: 1 } }, h(Button, { variant: "secondary", className: "btn-block" }, h(UsersIcon, { width: 18, height: 18 }), "New client")),
-              h(Link, { to: "/add-session", style: { flex: 1 } }, h(Button, { className: "btn-block" }, h(PlusCircleIcon, { width: 18, height: 18 }), "Log a session"))
+              h(Link, { to: "/attendance/new", style: { flex: 1 } }, h(Button, { className: "btn-block" }, h(PlusCircleIcon, { width: 18, height: 18 }), "Record attendance"))
             ),
             expiring.length > 0 && h("section", null,
               h("div", { className: "section-label" }, "Needs attention"),
@@ -310,7 +314,7 @@ function blankClient() {
     preferredTraining: [], currentGoal: "", medicalHistory: "", injuriesAndPain: "", precautions: "",
     trackedBodyAreas: STANDARD_BODY_AREAS.slice(),
     emergencyContactName: "", emergencyContactPhone: "", packageTotalSessions: null, packageStartDate: null,
-    packageExpiryDate: null, status: "active", generalNotes: "", assignedProgramId: null,
+    packageExpiryDate: null, status: "active", generalNotes: "", assignedProgramId: null, preferredSchedule:"",
   };
 }
 function ClientFormPage(props) {
@@ -334,7 +338,7 @@ function ClientFormPage(props) {
         precautions: existing.precautions, emergencyContactName: existing.emergencyContactName,
         emergencyContactPhone: existing.emergencyContactPhone, packageTotalSessions: existing.packageTotalSessions,
         packageStartDate: existing.packageStartDate, packageExpiryDate: existing.packageExpiryDate,
-        status: existing.status, generalNotes: existing.generalNotes, assignedProgramId: existing.assignedProgramId || null,
+        status: existing.status, generalNotes: existing.generalNotes, assignedProgramId: existing.assignedProgramId || null,preferredSchedule:existing.preferredSchedule||"",_expectedUpdatedAt:existing.updatedAt,
       });
       setHydrated(true);
     }
@@ -394,7 +398,7 @@ function ClientFormPage(props) {
           h(TextField, { label: "Start date", type: "date", value: form.startDate, onChange: function (e) { set("startDate", e.target.value); } }),
           h(TextAreaField, { label: "Current goal", optional: true, value: form.currentGoal, onChange: function (e) { set("currentGoal", e.target.value); }, placeholder: "What is this client working toward right now?" }),
           h(SelectField, { label: "Status", value: form.status, onChange: function (e) { set("status", e.target.value); } },
-            h("option", { value: "active" }, "Active"), h("option", { value: "inactive" }, "Inactive")),
+            h("option", { value: "active" }, "Active"), h("option", { value: "paused" }, "Paused"), h("option", { value: "inactive" }, "Inactive")),
           h(SelectField, {
             label: "Default workout template", optional: true, value: form.assignedProgramId || "",
             onChange: function (e) { set("assignedProgramId", e.target.value || null); },
@@ -404,15 +408,9 @@ function ClientFormPage(props) {
             (programs || []).map(function (p) { return h("option", { key: p.id, value: p.id }, p.name); })
           )
         ),
-        h("fieldset", { className: "form-group" },
-          h("legend", null, "Session package"),
-          h("div", { className: "form-grid-2" },
-            h(TextField, { label: "Total sessions in package", type: "number", min: 0, inputMode: "numeric", optional: true, value: form.packageTotalSessions == null ? "" : form.packageTotalSessions, onChange: function (e) { set("packageTotalSessions", e.target.value === "" ? null : Number(e.target.value)); }, error: errors.packageTotalSessions }),
-            h("div"),
-            h(TextField, { label: "Package start date", type: "date", optional: true, value: form.packageStartDate || "", onChange: function (e) { set("packageStartDate", e.target.value || null); } }),
-            h(TextField, { label: "Package expiry date", type: "date", optional: true, value: form.packageExpiryDate || "", onChange: function (e) { set("packageExpiryDate", e.target.value || null); } })
-          )
-        ),
+        h("fieldset", {className:"form-group"},h("legend",null,"Coaching preferences"),
+          h(TextField,{label:"Preferred days and time",value:form.preferredSchedule||"",onChange:function(e){set("preferredSchedule",e.target.value);},placeholder:"Mon / Wed / Fri · 08:00"}),
+          h("p",{className:"text-secondary",style:{fontSize:13}},"Add or adjust session purchases in the client’s Packages tab after saving their profile.")),
         h("fieldset", { className: "form-group" },
           h("legend", null, "Health & safety"),
           h(TextAreaField, { label: "Medical history", optional: true, value: form.medicalHistory, onChange: function (e) { set("medicalHistory", e.target.value); } }),
@@ -1178,22 +1176,25 @@ function ClientProfilePage(props) {
             [calculateAge(client.dateOfBirth) != null ? calculateAge(client.dateOfBirth) + " yrs" : null, client.gender && client.gender !== "Prefer not to say" ? client.gender : null, client.startDate ? "Since " + formatDate(client.startDate) : null].filter(Boolean).join(" · ")
           ),
           h("div", { className: "flex-row gap-8 wrap" },
-            h(Badge, { tone: client.status === "active" ? "success" : "neutral" }, client.status === "active" ? "Active" : "Inactive"),
+            h(Badge, { tone: client.status === "active" ? "success" : "neutral" }, client.status === "active" ? "Active" : client.status === "paused" ? "Paused" : "Inactive"),
             client.preferredTraining.map(function (t) { return h(Badge, { key: t, tone: "info" }, t); })
           )
         )
       ),
+      h(CRMProfileSummary,{client:client,sessions:sessions}),
       h("div", { className: "profile-tabs" },
         h(TabBar, {
           value: tab, onChange: function (t) { setQueryParam("tab", t); },
-          tabs: [{ value: "overview", label: "Overview" }, { value: "training", label: "Training" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
+          tabs: [{ value: "overview", label: "Overview" }, { value: "packages", label: "Packages" }, { value: "attendance", label: "Attendance" }, { value: "training", label: "Training" }, { value: "sessions", label: "Sessions" }, { value: "goals", label: "Goals" }, { value: "progress", label: "Progress" }, { value: "screening", label: "Screening" }],
         })
       ),
-      tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram, stats: stats, sessions: sessions, bodyScores: bodyScores || [], movementScreens: movementScreens || [] }),
+      tab === "packages" && h(CRMPackagesTab,{client:client}),
+      tab === "attendance" && h(CRMAttendancePage,{clientId:client.id}),
+      tab === "overview" && h(OverviewTab, { client: client, assignedProgram: assignedProgram, stats: stats, sessions: sessions.filter(crmCompleted), bodyScores: bodyScores || [], movementScreens: movementScreens || [] }),
       tab === "training" && h(TrainingTab, { client: client }),
-      tab === "sessions" && h(SessionsTab, { client: client, sessions: sessions }),
+      tab === "sessions" && h(SessionsTab, { client: client, sessions: sessions.filter(crmCompleted) }),
       tab === "goals" && h(GoalsTab, { client: client, goals: goals || [] }),
-      tab === "progress" && h(ProgressTab, { client: client, sessions: sessions, goals: goals || [], bodyScores: bodyScores || [] }),
+      tab === "progress" && h(ProgressTab, { client: client, sessions: sessions.filter(crmCompleted), goals: goals || [], bodyScores: bodyScores || [] }),
       tab === "screening" && h(ScreeningTab, { client: client, screens: movementScreens || [] })
     )
   );
@@ -1205,7 +1206,7 @@ function ClientProfilePage(props) {
 
 function blankSession(clientId, sessionNumber) {
   return {
-    clientId: clientId, date: todayIso(), sessionNumber: sessionNumber, trainingType: [], durationMinutes: 60,
+    id:generateId(),clientId: clientId, date: todayIso(), sessionTime:crmTime(),sessionNumber: sessionNumber, trainingType: [], durationMinutes: 60,
     exercises: [], sessionNote: "", clientResponse: "", painScore: null, rpe: null, modifications: "",
     progression: "", homework: "", nextSessionFocus: "", programId: null,
   };
@@ -1241,12 +1242,12 @@ function SessionFormPage(props) {
   useEffect(function () {
     if (mode === "edit" && existingSession && !form) {
       setForm({
-        clientId: existingSession.clientId, date: existingSession.date, sessionNumber: existingSession.sessionNumber,
+        clientId: existingSession.clientId, date: existingSession.date,sessionTime:existingSession.sessionTime, sessionNumber: existingSession.sessionNumber,
         trainingType: existingSession.trainingType, durationMinutes: existingSession.durationMinutes,
         exercises: existingSession.exercises, sessionNote: existingSession.sessionNote, clientResponse: existingSession.clientResponse,
         painScore: existingSession.painScore, rpe: existingSession.rpe, modifications: existingSession.modifications,
         progression: existingSession.progression, homework: existingSession.homework, nextSessionFocus: existingSession.nextSessionFocus,
-        programId: existingSession.programId,
+        programId: existingSession.programId,revision:existingSession.revision,
       });
     }
   }, [mode, existingSession, form]);
@@ -1310,6 +1311,7 @@ function SessionFormPage(props) {
   function handleSubmit(e) {
     e.preventDefault();
     if (!form) return;
+    if(mode==="create"&&!form.sessionTime){setSubmitError("Choose a session time so duplicate attendance can be detected.");return;}
     if (mode === "create" && !selectedProgramId) {
       setSubmitError("Choose a workout template to start this session.");
       return;
@@ -1345,10 +1347,12 @@ function SessionFormPage(props) {
     h(PageHeader, { title: mode === "create" ? ("New session" + (client ? " · " + client.fullName : "")) : "Edit session", back: true }),
     h("div", { className: "page-content" },
       h("form", { onSubmit: handleSubmit, noValidate: true },
+        mode==="create" && (allSessions||[]).some(function(s){return s.clientId===form.clientId&&s.date===form.date&&!s.voidedAt;}) && h("div",{className:"crm-warning"},"Attendance is already recorded for this date. To add workout details to that visit, ",h(Link,{to:"/sessions/"+(allSessions||[]).find(function(s){return s.clientId===form.clientId&&s.date===form.date&&!s.voidedAt;}).id+"/edit"},"edit the existing session"),". Save a new session only for a separate visit."),
         h("fieldset", { className: "form-group" },
           h("legend", null, "Session details"),
           h("div", { className: "form-grid-2" },
             h(TextField, { label: "Date", type: "date", value: form.date, onChange: function (e) { set("date", e.target.value); } }),
+            h(TextField, { label: "Time · Dubai", type:"time", value:form.sessionTime||"",required:mode==="create",onChange:function(e){set("sessionTime",e.target.value);} }),
             h(TextField, { label: "Session number", type: "number", min: 1, inputMode: "numeric", value: form.sessionNumber, onChange: function (e) { set("sessionNumber", Number(e.target.value)); } })
           ),
           h(MultiSelectChips, { label: "Training type", options: TRAINING_TYPES, value: form.trainingType, onChange: function (v) { set("trainingType", v); } }),
@@ -1415,10 +1419,10 @@ function SessionFormPage(props) {
         ),
         submitError && h("p", { className: "form-error", role: "alert", style: { marginBottom: 8 } }, submitError),
         h("div", { className: "form-actions" }, h(Button, { type: "submit", className: "btn-block", disabled: saving }, saving ? "Saving…" : mode === "create" ? "Save session" : "Save changes")),
-        mode === "edit" && h("div", { className: "form-actions" }, h(Button, { type: "button", variant: "danger", className: "btn-block", onClick: function () { setConfirmDeleteOpen(true); } }, "Delete session"))
+        mode === "edit" && h("div", { className: "form-actions" }, h(Button, { type: "button", variant: "danger", className: "btn-block", onClick: function () { setConfirmDeleteOpen(true); } }, "Undo attendance"))
       )
     ),
-    h(ConfirmDialog, { open: confirmDeleteOpen, title: "Delete this session?", message: "This permanently removes the session record. This cannot be undone.", onCancel: function () { setConfirmDeleteOpen(false); }, onConfirm: handleDelete }),
+    h(ConfirmDialog, { open: confirmDeleteOpen, title: "Undo this attendance?", message: "The entry and note stay in history. Any package deduction is restored.", confirmLabel:"Undo attendance", onCancel: function () { setConfirmDeleteOpen(false); }, onConfirm: handleDelete }),
     h(ConfirmDialog, {
       open: confirmApplyOpen, title: "Switch template?",
       message: "You've changed this session's exercises. Switching to \"" + (pendingTemplate ? pendingTemplate.name : "this template") + "\" will replace them with the template's exercises.",
@@ -1668,6 +1672,7 @@ function SettingsPage() {
   var _cr = useState(false), confirmRestoreOpen = _cr[0], setConfirmRestoreOpen = _cr[1];
   var _pf = useState(null), pendingFile = _pf[0], setPendingFile = _pf[1];
   var _b = useState(false), busy = _b[0], setBusy = _b[1];
+  var _rm = useState("merge"), restoreMode=_rm[0],setRestoreMode=_rm[1];
   var clients = useClients();
   var sessions = useAllSessions();
   var goals = useAllGoals();
@@ -1695,7 +1700,7 @@ function SettingsPage() {
     pendingFile.text().then(function (text) {
       var parsed = JSON.parse(text);
       if (!isBackupFile(parsed)) { setStatus("That file does not look like a Client Session Tracker backup."); return; }
-      return restoreBackup(parsed, "replace").then(function () {
+      return restoreBackup(parsed, restoreMode).then(function () {
         setStatus("Restored " + parsed.clients.length + " clients, " + parsed.sessions.length + " sessions, " + parsed.goals.length + " goals.");
       });
     }).catch(function (err) { setStatus("Import failed: " + err.message); }).finally(function () { setBusy(false); setConfirmRestoreOpen(false); setPendingFile(null); });
@@ -1718,6 +1723,7 @@ function SettingsPage() {
       )),
       h("section", null, h(SectionLabel, null, "Backup & restore"), h(Card, null,
         h(Button, { className: "btn-block", onClick: handleExport, disabled: busy, style: { marginBottom: 10 } }, h(DownloadIcon, null), "Export backup (.json)"),
+        h(SelectField,{label:"Restore mode",value:restoreMode,onChange:function(e){setRestoreMode(e.target.value);}},h("option",{value:"merge"},"Merge records safely"),h("option",{value:"replace"},"Replace with a complete backup")),
         h(Button, { variant: "secondary", className: "btn-block", onClick: function () { fileInputRef.current && fileInputRef.current.click(); }, disabled: busy }, h(UploadIcon, null), "Restore from backup…"),
         h("input", { ref: fileInputRef, type: "file", accept: "application/json", onChange: handleFileSelected, className: "sr-only", "aria-label": "Choose backup file" }),
         status && h("p", { role: "status", style: { marginTop: 12, fontSize: 13.5 } }, status)
@@ -1727,16 +1733,21 @@ function SettingsPage() {
         h(Button, { variant: "danger", className: "btn-block", onClick: function () { setConfirmWipeOpen(true); }, disabled: busy }, "Erase all data")
       )),
       h("section", null, h(SectionLabel, null, "About"), h(Card, null,
-        h("p", { style: { fontSize: 13.5, margin: 0 } }, "Client Session Tracker · v1.0.0"),
+        h("p", { style: { fontSize: 13.5, margin: 0 } }, "Pilates Tribe Client Studio · v2.0.0"),
         h("p", { className: "text-secondary", style: { fontSize: 12, marginTop: 4 } }, "Cloud-backed: your data lives in your own account, protected so only you can see it.")
       ))
     ),
-    h(ConfirmDialog, { open: confirmWipeOpen, title: "Erase all data?", message: "This deletes every client, session, and goal from this browser permanently.", confirmLabel: "Erase everything", onCancel: function () { setConfirmWipeOpen(false); }, onConfirm: handleWipe }),
-    h(ConfirmDialog, { open: confirmRestoreOpen, title: "Restore from backup?", message: "This replaces all data currently in this browser with the contents of \"" + (pendingFile && pendingFile.name) + "\".", confirmLabel: "Restore", onCancel: function () { setConfirmRestoreOpen(false); setPendingFile(null); }, onConfirm: handleConfirmRestore })
+    h(ConfirmDialog, { open: confirmWipeOpen, title: "Erase all data?", message: "This deletes this account’s clients and their related records from Supabase. Export a complete backup first.", confirmLabel: "Erase everything", onCancel: function () { setConfirmWipeOpen(false); }, onConfirm: handleWipe }),
+    h(ConfirmDialog, { open: confirmRestoreOpen, title: "Restore from backup?", message: "This restores cloud records from \"" + (pendingFile && pendingFile.name) + "\".", confirmLabel: "Restore", onCancel: function () { setConfirmRestoreOpen(false); setPendingFile(null); }, onConfirm: handleConfirmRestore })
   );
 }
 function MorePage() {
   var items = [
+    { to: "/finance", label: "Sales & purchases", description: "Purchases, receipts and outstanding balances", icon: ClipboardIcon },
+    { to: "/record-review", label: "Review records", description: "Complete details and reconcile history", icon: AlertIcon },
+    { to: "/coach-connect", label: "Connect ChatGPT", description: "Private coach assistant connection", icon: ClipboardIcon },
+    { to: "/renewals", label: "Renewals", description: "Package balances and follow-up conversations", icon: AlertIcon },
+    { to: "/attendance", label: "Attendance", description: "Visits, notes and corrections", icon: CalendarIcon },
     { to: "/sessions", label: "Session History", description: "All sessions across every client", icon: CalendarIcon },
     { to: "/goals", label: "Goals", description: "Goal status across all active clients", icon: TargetIcon },
     { to: "/programs", label: "Workout Templates", description: "Design once, run for any client", icon: ClipboardIcon },
@@ -1798,11 +1809,8 @@ function LoginPage() {
           okMsg && h("p", { role: "status", style: { color: "var(--success)", fontSize: 13, margin: 0 } }, okMsg),
           h(Button, { type: "submit", className: "btn-block", disabled: busy }, busy ? "Please wait…" : (mode === "signup" ? "Create account" : "Sign in"))
         ),
-        h("p", { className: "text-secondary", style: { fontSize: 13, textAlign: "center", marginTop: 16 } },
-          mode === "signup" ? "Already have an account? " : "New here? ",
-          h("a", { href: "#", onClick: function (e) { e.preventDefault(); setError(""); setOkMsg(""); setMode(mode === "signup" ? "signin" : "signup"); } },
-            mode === "signup" ? "Sign in" : "Create an account")
-        )
+        h("p",{className:"text-secondary",style:{fontSize:12,textAlign:"center",marginTop:16}},"Use your existing Pilates Tribe trainer account."),
+        h("p",{style:{textAlign:"center",marginTop:14}},h("a",{href:"?demo=1"},"Explore with fictional clients"))
       )
     )
   );
@@ -1817,8 +1825,16 @@ function App() {
   var p = route.parts;
   var page;
 
-  if (p.length === 0) page = h(Dashboard, null);
-  else if (p[0] === "clients" && p.length === 1) page = h(ClientsList, null);
+  if (p[0] === "finance") page = h(FinancePage, null);
+  else if (p[0] === "purchases" && p[1] === "new") page = h(FinancePurchasePage, null);
+  else if (p[0] === "payments" && p[1] === "new") page = h(FinancePaymentForm, null);
+  else if (p[0] === "record-review") page = h(FinanceReviewPage, null);
+  else if (p[0] === "coach-connect") page = h(CoachConnectPage, null);
+  else if (p[0] === "attendance" && p[1] === "new") page = h(CRMAttendanceForm, null);
+  else if (p[0] === "attendance") page = h(CRMAttendancePage, null);
+  else if (p[0] === "renewals") page = h(CRMRenewalsPage, null);
+  else if (p.length === 0) page = h(Dashboard, null);
+  else if (p[0] === "clients" && p.length === 1) page = h(CRMClientsPage, null);
   else if (p[0] === "clients" && p[1] === "new") page = h(ClientFormPage, { mode: "create" });
   else if (p[0] === "clients" && p.length === 3 && p[2] === "edit") page = h(ClientFormPage, { mode: "edit", clientId: p[1] });
   else if (p[0] === "clients" && p.length === 4 && p[2] === "sessions" && p[3] === "new") page = h(SessionFormPage, { mode: "create", clientId: p[1] });
@@ -1838,7 +1854,7 @@ function App() {
 
   return h("div", { className: "app-shell" },
     h(Sidebar, { route: route }),
-    h("main", { className: "app-main" }, page),
+    h("main", { className: "app-main" }, h(CRMDemoBanner,null),h(CRMErrorStrip,null),page),
     h(BottomNav, { route: route })
   );
 }

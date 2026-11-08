@@ -2,13 +2,19 @@
    (HTML/CSS/JS/icons) plus the pinned CDN library URLs — never Supabase API
    calls, which always go straight to the network so data is never served
    stale or offline-cached by accident. */
-var CACHE_NAME = "cst-shell-v4";
+var CACHE_NAME = "cst-shell-v6";
 var SHELL_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./config.js",
   "./data.js",
+  "./crm-data.js",
+  "./crm-ui.js",
+  "./finance-data.js",
+  "./finance-ui.js",
+  "./coach-ui.js",
+  "./demo-mode.js",
   "./movementScreen.js",
   "./icons.js",
   "./ui.js",
@@ -17,9 +23,9 @@ var SHELL_FILES = [
   "./training.js",
   "./app.js",
   "./manifest.json",
-  "https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js",
-  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js",
+  "./vendor/react.production.min.js",
+  "./vendor/react-dom.production.min.js",
+  "./vendor/supabase.js",
 ];
 var SHELL_URL_SET = null;
 function shellUrlSet() {
@@ -68,7 +74,7 @@ self.addEventListener("fetch", function (event) {
           return response;
         })
         .catch(function () { return cached; });
-      return cached || networkFetch;
+      return networkFetch;
     })
   );
 });

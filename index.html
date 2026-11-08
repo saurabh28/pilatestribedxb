@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Client Session Tracker</title>
+<title>Pilates Tribe · Client Studio</title>
+<meta name="robots" content="noindex,nofollow">
 <meta name="description" content="Client management and session tracking for Pilates, strength, and functional training — cloud-backed, private per trainer account.">
 
 <link rel="manifest" href="manifest.json">
@@ -22,9 +23,9 @@
 </head>
 <body>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/supabase.js"></script>
 
 <div id="root"></div>
 
@@ -32,17 +33,23 @@
      Fill these in from your Supabase project (Project Settings → API) —
      see config.example.js for the exact values to copy. -->
 <script src="config.js"></script>
+<script src="demo-mode.js"></script>
 <script src="data.js"></script>
+<script src="crm-data.js"></script>
+<script src="finance-data.js"></script>
 <script src="movementScreen.js"></script>
 <script src="icons.js"></script>
 <script src="ui.js"></script>
 <script src="charts.js"></script>
 <script src="exerciseEditor.js"></script>
 <script src="training.js"></script>
+<script src="crm-ui.js"></script>
+<script src="finance-ui.js"></script>
+<script src="coach-ui.js"></script>
 <script src="app.js"></script>
 
 <script>
-  if ("serviceWorker" in navigator) {
+  if ("serviceWorker" in navigator && !window.PILATES_DEMO) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").catch(function (err) {
         console.warn("Service worker registration failed:", err);
